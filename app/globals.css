@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F4F8FF;
+  --foreground: #0F172A;
+  --navy: #0B3C85;
+  --emergency: #E52E3D;
+  --slate-text: #475569;
+  --muted-grey: #94A3B8;
+}
+
+@theme {
+  --color-navy: #0B3C85;
+  --color-navy-dark: #072757;
+  --color-navy-light: #164ea5;
+  --color-emergency: #E52E3D;
+  --color-emergency-dark: #c41c2a;
+  --color-emergency-light: #ff4d5c;
+  --color-ice-blue: #F4F8FF;
+  --color-ice-blue-border: #E2E8F0;
+  --color-dark-navy: #0F172A;
+}
+
+/* Custom animations */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(229, 46, 61, 0.4), 0 0 30px rgba(229, 46, 61, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(229, 46, 61, 0.7), 0 0 60px rgba(229, 46, 61, 0.4);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Hide scrollbar for clean mobile preview */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

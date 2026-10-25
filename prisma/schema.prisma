@@ -1,0 +1,101 @@
+datasource db {
+  provider = "mysql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum BeaconStatus {
+  CONNECTED
+  READY_TO_PAIR
+  DISCONNECTED
+}
+
+enum AlertEventType {
+  SOS_ALERT
+  CONTACT_DELIVERED
+  BEACON_CONNECTED
+  SYSTEM_UPDATE
+  LOW_BATTERY
+}
+
+enum NotificationType {
+  SOS
+  SYSTEM
+  UPDATES
+}
+
+model User {
+  id            Int                @id @default(autoincrement())
+  name          String             @db.VarChar(120)
+  phone         String             @unique @db.VarChar(20)
+  password_hash String             @db.VarChar(255)
+  created_at    DateTime           @default(now())
+
+  beacons       Beacon[]
+  contacts      EmergencyContact[]
+  alerts        AlertHistory[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Beacon {
+  id              Int          @id @default(autoincrement())
+  user_id         Int
+  mac_address     String       @unique @db.VarChar(50)
+  device_name     String       @default("ESP32-S3") @db.VarChar(100)
+  signal_dbm      Int          @default(-45)
+  status          BeaconStatus @default(CONNECTED)
+  battery_percent Int          @default(88)
+
+  user            User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  alerts          AlertHistory[]
+
+  @@map("beacons")
+}
+
+model EmergencyContact {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  name        String   @db.VarChar(120)
+  phone       String   @db.VarChar(20)
+  relationship String  @db.VarChar(50)
+  is_primary  Boolean  @default(false)
+  photo_url   String?  @db.VarChar(500)
+
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("emergency_contacts")
+}
+
+model AlertHistory {
+  id           Int            @id @default(autoincrement())
+  user_id      Int
+  beacon_id    Int?
+  event_type   AlertEventType
+  status_badge String         @db.VarChar(50)
+  latitude     Decimal?       @db.Decimal(10, 7)
+  longitude    Decimal?       @db.Decimal(10, 7)
+  created_at   DateTime       @default(now())
+
+  user         User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  beacon       Beacon?        @relation(fields: [beacon_id], references: [id], onDelete: SetNull)
+
+  @@map("alert_history")
+}
+
+model Notification {
+  id         Int              @id @default(autoincrement())
+  user_id    Int
+  type       NotificationType
+  title      String           @db.VarChar(200)
+  message    String           @db.Text
+  is_read    Boolean          @default(false)
+  created_at DateTime         @default(now())
+
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
