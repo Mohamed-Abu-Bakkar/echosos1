@@ -38,6 +38,9 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== location.origin) return;
 
+  // Skip API routes — let them go straight to the network
+  if (url.pathname.startsWith('/api/')) return;
+
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
@@ -48,6 +51,11 @@ self.addEventListener('fetch', (event) => {
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
         return response;
+      }).catch(() => {
+        // Offline fallback for navigation requests
+        if (request.mode === 'navigate') {
+          return caches.match('/');
+        }
       });
     })
   );
