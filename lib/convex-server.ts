@@ -32,7 +32,7 @@ async function convexRequest(
   if (data.error) {
     throw new Error(`Convex ${endpoint} ${functionPath} error: ${data.error.message}`);
   }
-  return data.result;
+  return data.result ?? data.value;
 }
 
 export function convexQuery(functionPath: string, args: Record<string, any>): Promise<any> {
