@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { dbService } from '@/lib/db/service';
+import { convexMutation } from '@/lib/convex-server';
 
 export async function PUT(
   request: Request,
@@ -7,10 +7,17 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const contactId = parseInt(id, 10);
     const body = await request.json();
 
-    const updated = await dbService.updateContact(contactId, body);
+    const updated = await convexMutation('contacts:updateContact', {
+      contactId: id,
+      name: body.name,
+      phone: body.phone,
+      relationship: body.relationship,
+      isPrimary: body.is_primary,
+      photoUrl: body.photo_url,
+    });
+
     if (!updated) {
       return NextResponse.json(
         { success: false, message: 'Contact not found' },
@@ -37,9 +44,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const contactId = parseInt(id, 10);
+    const deleted = await convexMutation('contacts:deleteContact', { contactId: id });
 
-    const deleted = await dbService.deleteContact(contactId);
     if (!deleted) {
       return NextResponse.json(
         { success: false, message: 'Contact not found' },

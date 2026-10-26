@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
-import { dbService } from '@/lib/db/service';
 
 const AUTH_COOKIE_NAME = 'echosos_session';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'echosos_secure_super_secret_jwt_key_2026';

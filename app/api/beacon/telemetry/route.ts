@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { dbService } from '@/lib/db/service';
+import { convexMutation } from '@/lib/convex-server';
 
-// Webhook endpoint for ESP32-S3 BLE Hardware Beacon packets
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -13,7 +12,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await dbService.ingestHardwareTelemetry({
+    const result = await convexMutation('beacons:ingestHardwareTelemetry', {
       macAddress: body.macAddress,
       batteryPercent: body.batteryPercent,
       signalDbm: body.signalDbm,

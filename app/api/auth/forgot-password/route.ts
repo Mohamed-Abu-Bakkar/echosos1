@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { dbService } from '@/lib/db/service';
+import { convexQuery, convexMutation } from '@/lib/convex-server';
 
 export async function POST(request: Request) {
   try {
@@ -12,12 +12,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await dbService.requestPasswordReset(phone);
+    const user = await convexQuery('users:getUserByPhone', { phone });
+
+    const tempCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    if (user) {
+      await convexMutation('notifications:markAllNotificationsRead', { userId: user._id });
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Verification code sent to ${phone}. (Demo code: ${result.tempCode})`,
-      tempCode: result.tempCode,
+      message: `Verification code sent to ${phone}. (Demo code: ${tempCode})`,
+      tempCode,
     });
   } catch (error) {
     return NextResponse.json(

@@ -11,10 +11,10 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   themeColor: [{ media: '(prefers-color-scheme: light)', color: '#F4F8FF' }],
   icons: [
-    { rel: 'icon', type: 'image/svg+xml', sizes: '192x192', href: '/icons/icon-192.svg' },
-    { rel: 'icon', type: 'image/svg+xml', sizes: '512x512', href: '/icons/icon-512.svg' },
-    { rel: 'apple-touch-icon', sizes: '192x192', href: '/icons/icon-192.svg' },
-    { rel: 'apple-touch-icon', sizes: '512x512', href: '/icons/icon-512.svg' },
+    { rel: 'icon', type: 'image/svg+xml', sizes: '192x192', url: '/icons/icon-192.svg' },
+    { rel: 'icon', type: 'image/svg+xml', sizes: '512x512', url: '/icons/icon-512.svg' },
+    { rel: 'apple-touch-icon', sizes: '192x192', url: '/icons/icon-192.svg' },
+    { rel: 'apple-touch-icon', sizes: '512x512', url: '/icons/icon-512.svg' },
   ],
   openGraph: {
     title: 'EchoSOS - Emergency Safety Network',

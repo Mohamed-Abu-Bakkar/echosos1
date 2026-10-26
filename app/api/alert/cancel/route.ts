@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { dbService } from '@/lib/db/service';
+import { convexMutation } from '@/lib/convex-server';
 import { getSession } from '@/lib/auth';
 
 export async function POST() {
   try {
     const session = await getSession();
-    const userId = session?.userId || 1;
-    await dbService.cancelAlert(userId);
+    const userId = session?.userId || '1';
+    await convexMutation('alerts:cancelAlert', { userId });
 
     return NextResponse.json({
       success: true,

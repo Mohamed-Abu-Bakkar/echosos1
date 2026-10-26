@@ -4,19 +4,19 @@ import { v } from "convex/values";
 export const getPreferences = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    let pref = await ctx.db
+    const pref = await ctx.db
       .query("preferences")
       .filter((q) => q.eq(q.field("user_id"), args.userId))
       .unique();
 
     if (!pref) {
-      pref = await ctx.db.insert("preferences", {
+      return {
         user_id: args.userId,
         dark_mode: false,
         language: "en-US",
         notifications_enabled: true,
         sos_sensitivity: "HIGH",
-      });
+      };
     }
 
     return pref;
@@ -38,13 +38,14 @@ export const updatePreferences = mutation({
       .unique();
 
     if (!pref) {
-      pref = await ctx.db.insert("preferences", {
+      const newId = await ctx.db.insert("preferences", {
         user_id: args.userId,
         dark_mode: false,
         language: "en-US",
         notifications_enabled: true,
         sos_sensitivity: "HIGH",
       });
+      pref = await ctx.db.get(newId);
     }
 
     const updates: Record<string, any> = {};
@@ -53,13 +54,10 @@ export const updatePreferences = mutation({
     if (args.notificationsEnabled !== undefined) updates.notifications_enabled = args.notificationsEnabled;
     if (args.sosSensitivity !== undefined) updates.sos_sensitivity = args.sosSensitivity;
 
-    if (Object.keys(updates).length > 0) {
+    if (Object.keys(updates).length > 0 && pref) {
       await ctx.db.patch(pref._id, updates);
     }
 
-    return await ctx.db
-      .query("preferences")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
-      .unique();
+    return pref;
   },
 });

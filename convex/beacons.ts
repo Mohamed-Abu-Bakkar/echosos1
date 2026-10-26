@@ -31,7 +31,7 @@ export const pairBeacon = mutation({
         signal_dbm: -45,
       });
     } else {
-      beacon = await ctx.db.insert("beacons", {
+      const newId = await ctx.db.insert("beacons", {
         user_id: args.userId,
         mac_address: args.macAddress,
         device_name: args.deviceName,
@@ -39,26 +39,29 @@ export const pairBeacon = mutation({
         status: "CONNECTED",
         battery_percent: 88,
       });
+      beacon = await ctx.db.get(newId);
     }
 
-    await ctx.db.insert("alert_history", {
-      user_id: args.userId,
-      beacon_id: beacon._id,
-      event_type: "BEACON_CONNECTED",
-      status_badge: "Connected",
-      latitude: 10.8247,
-      longitude: 78.6956,
-      created_at: "Just now",
-    });
+    if (beacon) {
+      await ctx.db.insert("alert_history", {
+        user_id: args.userId,
+        beacon_id: beacon._id,
+        event_type: "BEACON_CONNECTED",
+        status_badge: "Connected",
+        latitude: 10.8247,
+        longitude: 78.6956,
+        created_at: "Just now",
+      });
 
-    await ctx.db.insert("notifications", {
-      user_id: args.userId,
-      type: "SYSTEM",
-      title: `${args.deviceName} Connected`,
-      message: `Device with MAC ${args.macAddress} paired successfully via BLE.`,
-      is_read: false,
-      created_at: "Just now",
-    });
+      await ctx.db.insert("notifications", {
+        user_id: args.userId,
+        type: "SYSTEM",
+        title: `${args.deviceName} Connected`,
+        message: `Device with MAC ${args.macAddress} paired successfully via BLE.`,
+        is_read: false,
+        created_at: "Just now",
+      });
+    }
 
     return beacon;
   },

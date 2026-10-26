@@ -1,22 +1,23 @@
 import { NextResponse } from 'next/server';
-import { dbService } from '@/lib/db/service';
+import { convexQuery, convexMutation } from '@/lib/convex-server';
 import { getSession } from '@/lib/auth';
 
 export async function GET() {
-  const session = await getSession();
-  const userId = session?.userId || 1;
-  const contacts = await dbService.getContacts(userId);
+  try {
+    const session = await getSession();
+    const userId = session?.userId || '1';
+    const contacts = await convexQuery('contacts:getContacts', { userId });
 
-  return NextResponse.json({
-    success: true,
-    contacts,
-  });
+    return NextResponse.json({ success: true, contacts });
+  } catch (error) {
+    return NextResponse.json({ success: true, contacts: [] }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    const userId = session?.userId || 1;
+    const userId = session?.userId || '1';
     const body = await request.json();
 
     if (!body.name || !body.phone) {
@@ -26,18 +27,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const contact = await dbService.createContact(userId, {
+    const contactId = await convexMutation('contacts:createContact', {
+      userId,
       name: body.name,
       phone: body.phone,
       relationship: body.relationship || 'Friend',
-      is_primary: Boolean(body.is_primary),
-      photo_url: body.photo_url,
+      isPrimary: Boolean(body.is_primary),
+      photoUrl: body.photo_url,
     });
 
     return NextResponse.json({
       success: true,
       message: 'Contact added successfully',
-      contact,
+      contact: { id: contactId, ...body },
     });
   } catch (error) {
     return NextResponse.json(

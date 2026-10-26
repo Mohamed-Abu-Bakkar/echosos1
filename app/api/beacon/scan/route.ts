@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
-import { nearbyDevices } from '@/lib/mock-data';
 
 export async function GET() {
-  // Simulate BLE hardware scan delay
   return NextResponse.json({
     success: true,
-    scannedCount: nearbyDevices.length,
-    devices: nearbyDevices,
+    scannedCount: 3,
+    devices: [
+      { name: 'EchoSOS-001', mac: 'C7:3A:5B:12:4E:9F', signal: '-45 dBm', available: true },
+      { name: 'EchoSOS-002', mac: 'B2:4C:19:98:3A:D1', signal: '-67 dBm', available: false },
+      { name: 'ESP32-Device', mac: 'FA:81:04:77:E5:22', signal: '-78 dBm', available: false },
+    ],
     timestamp: new Date().toISOString(),
   });
 }

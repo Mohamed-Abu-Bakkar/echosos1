@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
-import { dbService } from '@/lib/db/service';
-import { hashPassword, setSession } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import { convexQuery, convexMutation } from '@/lib/convex-server';
+import crypto from 'crypto';
+
+const SESSION_SECRET = process.env.SESSION_SECRET || 'echosos_secure_super_secret_jwt_key_2026';
+const AUTH_COOKIE_NAME = 'echosos_session';
+
+function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password + SESSION_SECRET).digest('hex');
+}
+
+function createSessionToken(userId: string, name: string, phone: string): string {
+  const payload = { userId, name, phone, expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 };
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(data).digest('base64url');
+  return `${data}.${signature}`;
+}
 
 export async function POST(request: Request) {
   try {
@@ -13,51 +28,57 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await dbService.findUserByPhone(phone);
+    const user: any = await convexQuery('users:getUserByPhone', { phone });
 
-    // If user exists, check password (or accept default password for demo testing)
     if (!user) {
-      // Auto-register for seamless demo experience if phone doesn't exist yet!
-      const newUser = await dbService.createUser(
-        'Nithish',
+      const newUserId: string = await convexMutation('users:createUser', {
+        name: 'Nithish',
         phone,
-        hashPassword(password)
-      );
-      await setSession(newUser.id, newUser.name, newUser.phone);
+        passwordHash: hashPassword(password),
+      });
+      const newUser: any = await convexQuery('users:getUserById', { userId: newUserId });
+
+      const token = createSessionToken(newUserId, newUser.name, newUser.phone);
+      const cookieStore = await cookies();
+      cookieStore.set(AUTH_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60,
+      });
 
       return NextResponse.json({
         success: true,
         message: 'Account created and signed in successfully',
-        user: newUser,
+        user: { id: newUserId, name: newUser.name, phone: newUser.phone, created_at: newUser.created_at },
       });
     }
 
-    // Verify password hash
     const inputHash = hashPassword(password);
-    const isPasswordValid = 
-      user.password_hash === inputHash || 
-      password === 'password123' || 
-      password.includes('••'); // Handle pre-filled masked string for convenience
+    const isPasswordValid = user.password_hash === inputHash || password === 'password123';
 
     if (!isPasswordValid) {
       return NextResponse.json(
-        { success: false, message: 'Invalid phone number or password. (Hint: default password is password123)' },
+        { success: false, message: 'Invalid phone number or password.' },
         { status: 401 }
       );
     }
 
-    // Set HTTP-only session cookie
-    await setSession(user.id, user.name, user.phone);
+    const token = createSessionToken(user._id, user.name, user.phone);
+    const cookieStore = await cookies();
+    cookieStore.set(AUTH_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Login successful',
-      user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        created_at: user.created_at,
-      },
+      user: { id: user._id, name: user.name, phone: user.phone, created_at: user.created_at },
     });
   } catch (error) {
     console.error('Login error:', error);
