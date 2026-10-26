@@ -1,11 +1,17 @@
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+let convexUrl: string | null = null;
 
-if (!convexUrl) {
-  throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
+function getConvexUrl(): string {
+  if (!convexUrl) {
+    convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  }
+  if (!convexUrl) {
+    throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
+  }
+  return convexUrl;
 }
 
 async function convexQuery(functionPath: string, args: Record<string, any>): Promise<any> {
-  const res = await fetch(`${convexUrl}/api/v1/query/${functionPath}`, {
+  const res = await fetch(`${getConvexUrl()}/api/v1/query/${functionPath}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ args }),
@@ -16,7 +22,7 @@ async function convexQuery(functionPath: string, args: Record<string, any>): Pro
 }
 
 async function convexMutation(functionPath: string, args: Record<string, any>): Promise<any> {
-  const res = await fetch(`${convexUrl}/api/v1/mutation/${functionPath}`, {
+  const res = await fetch(`${getConvexUrl()}/api/v1/mutation/${functionPath}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ args }),
@@ -26,4 +32,4 @@ async function convexMutation(functionPath: string, args: Record<string, any>): 
   return data.data;
 }
 
-export { convexQuery, convexMutation, convexUrl };
+export { convexQuery, convexMutation };
