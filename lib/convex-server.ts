@@ -1,13 +1,9 @@
-let convexUrl: string | null = null;
-
 function getConvexUrl(): string {
-  if (!convexUrl) {
-    convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  }
-  if (!convexUrl) {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!url) {
     throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
   }
-  return convexUrl;
+  return url;
 }
 
 async function convexQuery(functionPath: string, args: Record<string, any>): Promise<any> {
