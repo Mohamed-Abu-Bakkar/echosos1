@@ -1,3 +1,5 @@
+let convexUrl: string | undefined;
+
 function getConvexUrl(): string {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!url) {
@@ -6,26 +8,37 @@ function getConvexUrl(): string {
   return url;
 }
 
-async function convexQuery(functionPath: string, args: Record<string, any>): Promise<any> {
-  const res = await fetch(`${getConvexUrl()}/api/v1/query/${functionPath}`, {
+async function convexRequest(
+  endpoint: "query" | "mutation",
+  functionPath: string,
+  args: Record<string, any>,
+): Promise<any> {
+  const url = `${getConvexUrl()}/api/${endpoint}`;
+  const body = JSON.stringify({
+    path: functionPath,
+    format: "convex_encoded_json",
+    args: [args],
+  });
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ args }),
+    body,
   });
-  if (!res.ok) throw new Error(`Convex query ${functionPath} failed: ${res.statusText}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Convex ${endpoint} ${functionPath} failed: ${res.status} ${text}`);
+  }
   const data = await res.json();
-  return data.data;
+  if (data.error) {
+    throw new Error(`Convex ${endpoint} ${functionPath} error: ${data.error.message}`);
+  }
+  return data.result;
 }
 
-async function convexMutation(functionPath: string, args: Record<string, any>): Promise<any> {
-  const res = await fetch(`${getConvexUrl()}/api/v1/mutation/${functionPath}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ args }),
-  });
-  if (!res.ok) throw new Error(`Convex mutation ${functionPath} failed: ${res.statusText}`);
-  const data = await res.json();
-  return data.data;
+export function convexQuery(functionPath: string, args: Record<string, any>): Promise<any> {
+  return convexRequest("query", functionPath, args);
 }
 
-export { convexQuery, convexMutation };
+export function convexMutation(functionPath: string, args: Record<string, any>): Promise<any> {
+  return convexRequest("mutation", functionPath, args);
+}
