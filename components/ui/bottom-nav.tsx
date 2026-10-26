@@ -30,7 +30,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   };
 
   return (
-    <nav className="h-16 bg-white/95 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-2 shrink-0 z-30 shadow-[0_-4px_16px_rgba(0,0,0,0.03)] sticky bottom-0 w-full">
+    <nav className="h-16 bg-white/95 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-2 shrink-0 z-50 shadow-[0_-4px_16px_rgba(0,0,0,0.03)] fixed bottom-0 left-0 right-0 w-full">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = getIsActive(tab.id, tab.href);

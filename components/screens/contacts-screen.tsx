@@ -149,7 +149,7 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
   };
 
   return (
-    <div className="flex flex-col flex-1 w-full bg-[#F4F8FF] px-4 py-4 overflow-y-auto no-scrollbar space-y-4 pb-8">
+    <div className="flex flex-col flex-1 w-full bg-[#F4F8FF] px-4 py-4 overflow-y-auto no-scrollbar space-y-4 pb-16">
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center space-x-2">
