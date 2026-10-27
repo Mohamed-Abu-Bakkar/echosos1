@@ -19,12 +19,15 @@ export async function POST(request: Request) {
       buttonPressed: Boolean(body.buttonPressed),
       latitude: body.latitude,
       longitude: body.longitude,
+      eventId: typeof body.eventId === 'string' ? body.eventId : undefined,
+      beaconHardwareId:
+        typeof body.beaconHardwareId === 'string' ? body.beaconHardwareId : undefined,
     });
 
     return NextResponse.json({
       success: true,
       message: result.alertTriggered
-        ? 'Distress signal received from ESP32-S3 tactile button! SOS dispatches initiated.'
+        ? `Distress signal received from ESP32-S3 tactile button! Event ${result.eventId}. SOS dispatches initiated.`
         : 'Telemetry packet acknowledged.',
       ...result,
     });

@@ -20,6 +20,7 @@ import { EchoLogo } from '@/components/ui/echo-logo';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { EmergencyContact } from '@/lib/types';
+import { BackgroundBLEScanner } from '@/lib/ble-background-scanner';
 
 interface AlertScreenProps {
   onNavigate?: (screen: string) => void;
@@ -29,9 +30,11 @@ interface AlertScreenProps {
 export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
   const router = useRouter();
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [telemetry, setTelemetry] = useState({
     beaconId: 'ESP32-S3',
+    eventId: '',
     detectedAt: '10:24 AM',
     signalDbm: '-45 dBm (Good)',
     latitude: 10.8247,
@@ -45,9 +48,10 @@ export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
       .then((data) => {
         if (data.success && data.alertState) {
           setTelemetry({
-            beaconId: data.alertState.beaconId || 'ESP32-S3',
-            detectedAt: data.alertState.detectedAt || '10:24 AM',
-            signalDbm: data.alertState.signalDbm || '-45 dBm (Good)',
+            beaconId: data.alertState.beacon_id || data.alertState.beaconId || 'ESP32-S3',
+            eventId: data.alertState.event_id || data.alertState.eventId || '',
+            detectedAt: data.alertState.detected_at || data.alertState.detectedAt || '10:24 AM',
+            signalDbm: data.alertState.signal_dbm || data.alertState.signalDbm || '-45 dBm (Good)',
             latitude: data.alertState.latitude || 10.8247,
             longitude: data.alertState.longitude || 78.6956,
           });
@@ -69,19 +73,66 @@ export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
   const handleCancel = async () => {
     if (confirm('Are you sure you want to cancel the emergency alert? A false alert notification will be sent to your contacts.')) {
       setIsCancelling(true);
+      setCancelError(null);
       try {
-        await fetch('/api/alert/cancel', { method: 'POST' });
+        let bleVerified = false;
+        let bleDeviceId: string | undefined;
+
+        // Best-effort GATT check: connect and confirm the event ID on the beacon
+        // before the backend cancel. Skipped on web / when no device is found.
+        if (telemetry.eventId) {
+          try {
+            const scanner = new BackgroundBLEScanner();
+            if (await scanner.isAvailable()) {
+              await scanner.requestPermissions();
+              const emergency = scanner.getEmergencyBeacon();
+              if (emergency?.id) {
+                bleDeviceId = emergency.id;
+                const verification = await scanner.verifyEventForCancel(
+                  emergency.id,
+                  telemetry.eventId
+                );
+                if (verification.reachable && !verification.verified) {
+                  setCancelError(verification.message);
+                  return;
+                }
+                bleVerified = verification.verified;
+              }
+            }
+          } catch {
+            // GATT optional — fall through to backend cancel with known event id
+          }
+        }
+
+        const res = await fetch('/api/alert/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventId: telemetry.eventId || undefined,
+            beaconId: telemetry.beaconId,
+            bleVerified,
+            bleDeviceId,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) {
+          setCancelError(data.message || 'Failed to cancel alert.');
+          return;
+        }
       } catch (err) {
         console.error('Cancel alert error:', err);
+        setCancelError('Failed to cancel alert.');
+        return;
       } finally {
         setIsCancelling(false);
-        if (onCancelAlert) {
-          onCancelAlert();
-        } else if (onNavigate) {
-          onNavigate('home');
-        } else {
-          router.push('/');
-        }
+      }
+
+      if (onCancelAlert) {
+        onCancelAlert();
+      } else if (onNavigate) {
+        onNavigate('home');
+      } else {
+        router.push('/');
       }
     }
   };
@@ -137,29 +188,37 @@ export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
 
       {/* Main Content Area */}
       <div className="p-4 space-y-3.5 -mt-3 relative z-10">
-        {/* Beacon Telemetry Card (3 Columns) */}
-        <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm grid grid-cols-3 divide-x divide-slate-100 text-center">
-          <div className="px-2">
+        {/* Beacon Telemetry Card (4 Columns) */}
+        <div className="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm grid grid-cols-4 divide-x divide-slate-100 text-center">
+          <div className="px-1.5">
             <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
               Beacon ID
             </span>
-            <span className="text-xs font-black text-[#0F172A] block mt-1">
+            <span className="text-[11px] font-black text-[#0F172A] block mt-1 truncate" title={telemetry.beaconId}>
               {telemetry.beaconId}
             </span>
           </div>
-          <div className="px-2">
+          <div className="px-1.5">
             <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
-              Detected At
+              Event ID
             </span>
-            <span className="text-xs font-black text-[#0B3C85] block mt-1">
+            <span className="text-[11px] font-black text-[#E52E3D] block mt-1 font-mono" title={telemetry.eventId || undefined}>
+              {telemetry.eventId || '—'}
+            </span>
+          </div>
+          <div className="px-1.5">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
+              Detected
+            </span>
+            <span className="text-[11px] font-black text-[#0B3C85] block mt-1">
               {telemetry.detectedAt}
             </span>
           </div>
-          <div className="px-2">
+          <div className="px-1.5">
             <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
               Signal
             </span>
-            <span className="text-xs font-black text-emerald-600 block mt-1 truncate">
+            <span className="text-[11px] font-black text-emerald-600 block mt-1 truncate">
               {telemetry.signalDbm}
             </span>
           </div>
@@ -285,7 +344,7 @@ export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
             {isCancelling ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
-                <span>Cancelling alert...</span>
+                <span>Verifying event &amp; cancelling...</span>
               </>
             ) : (
               <>
@@ -295,9 +354,16 @@ export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
             )}
           </Button>
 
+          {cancelError && (
+            <p className="text-[11px] text-center text-red-600 leading-tight font-semibold">
+              {cancelError}
+            </p>
+          )}
+
           {/* Warning text */}
           <p className="text-[11px] text-center text-slate-400 leading-tight">
-            Only cancel if it is a false alert. This will notify your contacts.
+            Only cancel if it is a false alert. This will notify your contacts and is bound to event{' '}
+            <span className="font-mono font-semibold">{telemetry.eventId || '—'}</span>.
           </p>
         </div>
       </div>

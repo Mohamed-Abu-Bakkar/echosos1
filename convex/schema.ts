@@ -68,6 +68,10 @@ export default defineSchema({
   active_alert: defineTable({
     user_id: v.id("users"),
     beacon_id: v.string(),
+    /** Compact 8-hex event id shared with BLE advertisement + GATT Event State. */
+    event_id: v.optional(v.string()),
+    /** BLE mode that opened this event: emergency (e) or cancel (c) when cancelling. */
+    ble_mode: v.optional(v.union(v.literal("e"), v.literal("c"))),
     is_active: v.boolean(),
     detected_at: v.string(),
     signal_dbm: v.string(),
@@ -75,5 +79,7 @@ export default defineSchema({
     longitude: v.float64(),
     contacts_dispatched: v.number(),
     dispatch_url: v.string(),
-  }),
+  })
+    .index("by_event_id", ["event_id"])
+    .index("by_user_and_active", ["user_id", "is_active"]),
 });
