@@ -1,6 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Permissions for BLE scanning -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Required for Android 12+ location assertion -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Required for Android 12+ to strongly assert app doesn't derive location -->
+    <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED" android:maxSdkVersion="32" />
+
+    <!-- Background mode permissions for BLE scanning -->
+    <permission android:name="${applicationId}.ble_background"
+        android:label="EchoSOS BLE Background Mode"
+        android:protectionLevel="normal" />
+
+    <!-- Required for background BLE scanning on Android 12+ -->
+    <uses-permission android:name="${applicationId}.ble_background" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -8,6 +28,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
+        <!-- Enable background execution for BLE scanning -->
+        <meta-data
+            android:name="android.maxaldoblacklistmode"
+            android:value="runInBackground" />
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
@@ -33,9 +58,15 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Bluetooth Le Scan configuration -->
+        <service
+            android:name="com.getcapacitor.BleScanService"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.getcapacitor.intent.action.BLE_SCAN" />
+            </intent-filter>
+        </service>
     </application>
-
-    <!-- Permissions -->
-
-    <uses-permission android:name="android.permission.INTERNET" />
 </manifest>
