@@ -1,3 +1,4 @@
+import { useRouter } from "next/navigation";
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -16,13 +17,22 @@ import {
 } from 'lucide-react';
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/lib/auth-context';
+import * as api from '@/lib/api';
 
 interface BeaconScreenProps {
   onNavigate?: (screen: string) => void;
 }
 
 export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const [isScanning, setIsScanning] = useState(false);
+
+  // Route guard: require an active session
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+  }, [loading, user, router]);
   const [pairedDevice, setPairedDevice] = useState('ESP32-S3');
   const [macAddress, setMacAddress] = useState('C7:3A:5B:12:4E:9F');
   const [batteryPercent, setBatteryPercent] = useState(88);
@@ -31,8 +41,8 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
 
   useEffect(() => {
     // Fetch live beacon configuration
-    fetch('/api/beacon')
-      .then((res) => res.json())
+    api
+      .getBeacon()
       .then((data) => {
         if (data.success && data.beacon) {
           setPairedDevice(data.beacon.device_name || 'ESP32-S3');
@@ -47,11 +57,12 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
     setIsScanning(true);
     setStatusMessage('Scanning 2.4GHz BLE spectrum for EchoSOS hardware...');
     try {
-      const res = await fetch('/api/beacon/scan');
-      const data = await res.json();
+      const data = await api.scanBeacon();
       if (data.success && data.devices) {
         setDevices(data.devices);
         setStatusMessage(`Scan complete: Found ${data.scannedCount} nearby devices.`);
+      } else {
+        setStatusMessage('Bluetooth unavailable — no nearby devices found.');
       }
     } catch (err) {
       setStatusMessage('BLE scan completed.');
@@ -63,20 +74,16 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
 
   const handleRegister = async (name: string, mac: string) => {
     try {
-      const res = await fetch('/api/beacon', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceName: name, macAddress: mac }),
-      });
-      const data = await res.json();
+      const data = await api.pairBeacon({ deviceName: name, macAddress: mac });
       if (data.success) {
         setPairedDevice(name);
         setMacAddress(mac);
         setStatusMessage(`Successfully paired and registered ${name}!`);
+      } else {
+        setStatusMessage(data.message || 'Pairing failed.');
       }
     } catch (err) {
-      setPairedDevice(name);
-      setStatusMessage(`Paired with ${name}`);
+      setStatusMessage('Pairing failed.');
     } finally {
       setTimeout(() => setStatusMessage(null), 4000);
     }

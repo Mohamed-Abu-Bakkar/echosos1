@@ -1,3 +1,4 @@
+import { useRouter } from "next/navigation";
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -19,22 +20,27 @@ import { Badge } from '@/components/ui/badge';
 import { AlertHistory, StatusBadge } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
+import * as api from '@/lib/api';
 
 interface HistoryScreenProps {
   onNavigate?: (screen: string) => void;
 }
 
 export function HistoryScreen({ onNavigate }: HistoryScreenProps) {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  // Route guard: require an active session
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+  }, [loading, user, router]);
   const [historyList, setHistoryList] = useState<AlertHistory[]>([]);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'SOS' | 'SYSTEM' | 'UPDATES'>('ALL');
   const [totalCount, setTotalCount] = useState(0);
 
   const fetchHistory = async (filter: string) => {
     try {
-      const url = filter === 'ALL' ? '/api/history' : `/api/history?filter=${filter}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await api.getHistory(filter === 'ALL' ? undefined : filter);
       if (data.success && data.history) {
         setHistoryList(data.history);
         if (data.totalRecords) setTotalCount(data.totalRecords);

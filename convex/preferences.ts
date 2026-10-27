@@ -1,12 +1,14 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireUser } from "./lib/authz";
 
 export const getPreferences = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireUser(ctx, args.userId);
     const pref = await ctx.db
       .query("preferences")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .withIndex("user_id", (q) => q.eq("user_id", args.userId))
       .unique();
 
     if (!pref) {
@@ -32,9 +34,10 @@ export const updatePreferences = mutation({
     sosSensitivity: v.optional(v.union(v.literal("HIGH"), v.literal("MEDIUM"), v.literal("LOW"))),
   },
   handler: async (ctx, args) => {
+    await requireUser(ctx, args.userId);
     let pref = await ctx.db
       .query("preferences")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .withIndex("user_id", (q) => q.eq("user_id", args.userId))
       .unique();
 
     if (!pref) {
@@ -48,7 +51,7 @@ export const updatePreferences = mutation({
       pref = await ctx.db.get(newId);
     }
 
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | boolean> = {};
     if (args.darkMode !== undefined) updates.dark_mode = args.darkMode;
     if (args.language !== undefined) updates.language = args.language;
     if (args.notificationsEnabled !== undefined) updates.notifications_enabled = args.notificationsEnabled;
@@ -56,6 +59,7 @@ export const updatePreferences = mutation({
 
     if (Object.keys(updates).length > 0 && pref) {
       await ctx.db.patch(pref._id, updates);
+      pref = await ctx.db.get(pref._id);
     }
 
     return pref;

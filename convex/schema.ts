@@ -20,7 +20,9 @@ export default defineSchema({
       v.literal("DISCONNECTED")
     ),
     battery_percent: v.number(),
-  }).index("user_id", ["user_id"]),
+  })
+    .index("user_id", ["user_id"])
+    .index("mac_address", ["mac_address"]),
 
   emergency_contacts: defineTable({
     user_id: v.id("users"),

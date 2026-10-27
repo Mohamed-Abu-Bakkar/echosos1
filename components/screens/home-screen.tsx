@@ -20,6 +20,7 @@ import { EchoLogo } from '@/components/ui/echo-logo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { EmergencyContact } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
+import * as api from '@/lib/api';
 
 interface HomeScreenProps {
   onNavigate?: (screen: string) => void;
@@ -27,34 +28,63 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [isTriggering, setIsTriggering] = useState(false);
+  const [beacon, setBeacon] = useState<{ status?: string; device_name?: string; battery_percent?: number } | null>(null);
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'locating' | 'ready' | 'denied' | 'unavailable'>('idle');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  // Route guard: require an active session
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+  }, [loading, user, router]);
 
   useEffect(() => {
     // Fetch live emergency contacts from backend
-    fetch('/api/contacts')
-      .then((res) => res.json())
+    api
+      .getContacts()
       .then((data) => {
         if (data.success && data.contacts) {
           setContacts(data.contacts);
         }
       })
       .catch(() => {});
+
+    api
+      .getBeacon()
+      .then((data) => {
+        if (data.success) setBeacon(data.beacon);
+      })
+      .catch(() => {});
+
+    // Real GPS fix for SOS coordinates
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      setGeoStatus('locating');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCoords({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+          setGeoStatus('ready');
+        },
+        () => setGeoStatus('denied'),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    } else {
+      setGeoStatus('unavailable');
+    }
   }, []);
 
   const handleSOSTrigger = async () => {
     setIsTriggering(true);
     try {
-      // Trigger distress call on backend API
-      await fetch('/api/alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          latitude: 10.8247,
-          longitude: 78.6956,
-        }),
+      await api.triggerAlert({
+        latitude: coords?.latitude,
+        longitude: coords?.longitude,
+        beaconId: beacon?.device_name,
       });
     } catch (err) {
       console.error('Failed to dispatch SOS alert to backend:', err);
@@ -77,7 +107,11 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
         .join('')
         .substring(0, 2)
         .toUpperCase()
-    : 'NK';
+    : 'U';
+
+  const beaconLabel = beacon?.device_name || 'No beacon paired';
+  const beaconStatusText = beacon?.status === 'CONNECTED' ? 'Connected' : beacon?.status === 'READY_TO_PAIR' ? 'Ready to pair' : 'Disconnected';
+  const beaconStatusColor = beacon?.status === 'CONNECTED' ? 'text-emerald-600' : 'text-amber-600';
 
   return (
     <div className="flex flex-col flex-1 w-full bg-[#F4F8FF] px-4 py-4 overflow-y-auto no-scrollbar space-y-4 pb-16">
@@ -100,7 +134,7 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-black text-[#0B3C85] tracking-tight">
-            Hello, {user?.name || 'Nithish'}
+            Hello, {user?.name || 'there'}
           </h2>
           <p className="text-xs text-slate-500 font-medium">
             Stay safe. We are always with you.
@@ -108,11 +142,21 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
         </div>
         <button
           onClick={() => onNavigate ? onNavigate('beacon') : router.push('/beacon')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-700 text-[11px] font-bold hover:bg-emerald-100 transition-colors"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-bold transition-colors ${
+            beacon?.status === 'CONNECTED'
+              ? 'bg-emerald-50 border-emerald-200/60 text-emerald-700 hover:bg-emerald-100'
+              : 'bg-amber-50 border-amber-200/60 text-amber-700 hover:bg-amber-100'
+          }`}
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Device Connected</span>
-          <ChevronRight className="w-3.5 h-3.5 text-emerald-600" />
+          <span
+            className={`w-2 h-2 rounded-full ${
+              beacon?.status === 'CONNECTED'
+                ? 'bg-emerald-500 animate-pulse'
+                : 'bg-amber-500'
+            }`}
+          />
+          <span>{beacon?.status === 'CONNECTED' ? 'Device Connected' : 'Beacon Offline'}</span>
+          <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
@@ -170,11 +214,11 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
             <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">
               Beacon Status
             </span>
-            <span className="text-sm font-black text-emerald-600 block mt-0.5">
-              Connected
+            <span className={`text-sm font-black block mt-0.5 ${beaconStatusColor}`}>
+              {beaconStatusText}
             </span>
             <span className="text-[11px] text-slate-500 font-medium block truncate mt-0.5">
-              ESP32-S3 (EchoSOS)
+              {beaconLabel}
             </span>
           </div>
         </div>
@@ -195,10 +239,20 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
               Location Status
             </span>
             <span className="text-sm font-black text-[#0F172A] block mt-0.5">
-              Enabled
+              {geoStatus === 'ready'
+                ? 'Ready'
+                : geoStatus === 'locating'
+                  ? 'Locating…'
+                  : geoStatus === 'denied'
+                    ? 'Permission denied'
+                    : geoStatus === 'unavailable'
+                      ? 'Unavailable'
+                      : 'Idle'}
             </span>
             <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
-              GPS Active (Accuracy 5m)
+              {coords
+                ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
+                : 'GPS fix used for SOS coordinates'}
             </span>
           </div>
         </div>

@@ -38,8 +38,8 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
   const { login, register } = useAuth();
   const router = useRouter();
 
-  const [phone, setPhone] = useState('+91 98765 43210');
-  const [password, setPassword] = useState('password123');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -212,7 +212,11 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
           <button
             type="button"
             className="text-[#0B3C85] font-semibold hover:underline"
-            onClick={() => alert('Demo account: Mobile: +91 98765 43210, Password: password123')}
+            onClick={() =>
+              setErrorMessage(
+                'Password reset is not available yet. Contact support to recover your account.'
+              )
+            }
           >
             Forgot Password?
           </button>
@@ -303,7 +307,7 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#0F172A]">Full Name</label>
               <Input
-                placeholder="e.g. Nithish Kumar"
+                placeholder="Full name"
                 value={regName}
                 onChange={(e) => setRegName(e.target.value)}
                 required

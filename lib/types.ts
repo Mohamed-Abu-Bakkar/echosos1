@@ -18,7 +18,7 @@ export type StatusBadge =
 export type NotificationType = 'SOS' | 'SYSTEM' | 'UPDATES';
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
   phone: string;
   created_at: string;

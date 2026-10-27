@@ -1,12 +1,14 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireOwnedContact, requireUser } from "./lib/authz";
 
 export const getContacts = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireUser(ctx, args.userId);
     return await ctx.db
       .query("emergency_contacts")
-      .filter((q) => q.eq(q.field("user_id"), args.userId))
+      .withIndex("user_id", (q) => q.eq("user_id", args.userId))
       .order("desc")
       .collect();
   },
@@ -22,6 +24,7 @@ export const createContact = mutation({
     photoUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireUser(ctx, args.userId);
     const initials = args.name
       .split(" ")
       .map((n) => n[0])
@@ -30,15 +33,13 @@ export const createContact = mutation({
       .toUpperCase();
 
     if (args.isPrimary) {
-      await ctx.db
+      const contacts = await ctx.db
         .query("emergency_contacts")
-        .filter((q) => q.eq(q.field("user_id"), args.userId))
-        .collect()
-        .then((contacts) =>
-          Promise.all(
-            contacts.map((c) => ctx.db.patch(c._id, { is_primary: false }))
-          )
-        );
+        .withIndex("user_id", (q) => q.eq("user_id", args.userId))
+        .collect();
+      await Promise.all(
+        contacts.map((c) => ctx.db.patch(c._id, { is_primary: false }))
+      );
     }
 
     const contactId = await ctx.db.insert("emergency_contacts", {
@@ -57,6 +58,7 @@ export const createContact = mutation({
 
 export const updateContact = mutation({
   args: {
+    userId: v.id("users"),
     contactId: v.id("emergency_contacts"),
     name: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -65,22 +67,20 @@ export const updateContact = mutation({
     photoUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const contact = await ctx.db.get(args.contactId);
+    const contact = await requireOwnedContact(ctx, args.userId, args.contactId);
     if (!contact) return null;
 
     if (args.isPrimary) {
-      await ctx.db
+      const contacts = await ctx.db
         .query("emergency_contacts")
-        .filter((q) => q.eq(q.field("user_id"), contact.user_id))
-        .collect()
-        .then((contacts) =>
-          Promise.all(
-            contacts.map((c) => ctx.db.patch(c._id, { is_primary: false }))
-          )
-        );
+        .withIndex("user_id", (q) => q.eq("user_id", contact.user_id))
+        .collect();
+      await Promise.all(
+        contacts.map((c) => ctx.db.patch(c._id, { is_primary: false }))
+      );
     }
 
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | boolean> = {};
     if (args.name !== undefined) updates.name = args.name;
     if (args.phone !== undefined) updates.phone = args.phone;
     if (args.relationship !== undefined) updates.relationship = args.relationship;
@@ -93,8 +93,10 @@ export const updateContact = mutation({
 });
 
 export const deleteContact = mutation({
-  args: { contactId: v.id("emergency_contacts") },
+  args: { userId: v.id("users"), contactId: v.id("emergency_contacts") },
   handler: async (ctx, args) => {
+    const contact = await requireOwnedContact(ctx, args.userId, args.contactId);
+    if (!contact) return false;
     await ctx.db.delete(args.contactId);
     return true;
   },

@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { EmergencyContact } from '@/lib/types';
 import { BackgroundBLEScanner } from '@/lib/ble-background-scanner';
+import * as api from '@/lib/api';
 
 interface AlertScreenProps {
   onNavigate?: (screen: string) => void;
@@ -33,35 +34,36 @@ export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [telemetry, setTelemetry] = useState({
-    beaconId: 'ESP32-S3',
+    beaconId: '',
     eventId: '',
-    detectedAt: '10:24 AM',
-    signalDbm: '-45 dBm (Good)',
-    latitude: 10.8247,
-    longitude: 78.6956,
+    detectedAt: '',
+    signalDbm: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
   });
 
   useEffect(() => {
     // Load live telemetry from backend
-    fetch('/api/alert')
-      .then((res) => res.json())
+    api
+      .getAlert()
       .then((data) => {
         if (data.success && data.alertState) {
+          const a = data.alertState;
           setTelemetry({
-            beaconId: data.alertState.beacon_id || data.alertState.beaconId || 'ESP32-S3',
-            eventId: data.alertState.event_id || data.alertState.eventId || '',
-            detectedAt: data.alertState.detected_at || data.alertState.detectedAt || '10:24 AM',
-            signalDbm: data.alertState.signal_dbm || data.alertState.signalDbm || '-45 dBm (Good)',
-            latitude: data.alertState.latitude || 10.8247,
-            longitude: data.alertState.longitude || 78.6956,
+            beaconId: a.beacon_id || '',
+            eventId: a.event_id || '',
+            detectedAt: a.detected_at || '',
+            signalDbm: a.signal_dbm || '',
+            latitude: typeof a.latitude === 'number' ? a.latitude : null,
+            longitude: typeof a.longitude === 'number' ? a.longitude : null,
           });
         }
       })
       .catch(() => {});
 
     // Load contacts from backend
-    fetch('/api/contacts')
-      .then((res) => res.json())
+    api
+      .getContacts()
       .then((data) => {
         if (data.success && data.contacts) {
           setContacts(data.contacts);
@@ -104,18 +106,12 @@ export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
           }
         }
 
-        const res = await fetch('/api/alert/cancel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventId: telemetry.eventId || undefined,
-            beaconId: telemetry.beaconId,
-            bleVerified,
-            bleDeviceId,
-          }),
+        const data = await api.cancelAlert({
+          eventId: telemetry.eventId || undefined,
+          beaconId: telemetry.beaconId,
+          bleVerified,
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || data.success === false) {
+        if (!data.success) {
           setCancelError(data.message || 'Failed to cancel alert.');
           return;
         }
@@ -234,12 +230,13 @@ export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
               <div>
                 <h3 className="text-xs font-bold text-[#0F172A]">Live Location</h3>
                 <span className="text-[11px] font-mono font-medium text-slate-500">
-                  {telemetry.latitude.toFixed(4)}° N, {telemetry.longitude.toFixed(4)}° E
+                  {telemetry.latitude !== null ? `${telemetry.latitude.toFixed(4)}° N` : '—'}{' '}
+                  {telemetry.longitude !== null ? `${telemetry.longitude.toFixed(4)}° E` : '—'}
                 </span>
               </div>
             </div>
             <a
-              href={`https://maps.google.com/?q=${telemetry.latitude},${telemetry.longitude}`}
+              href={`https://maps.google.com/?q=${telemetry.latitude !== null ? telemetry.latitude : ''},${telemetry.longitude !== null ? telemetry.longitude : ''}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0B3C85] hover:underline bg-blue-50 px-2 py-1 rounded-lg"

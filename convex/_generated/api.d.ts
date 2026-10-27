@@ -11,6 +11,8 @@
 import type * as alerts from "../alerts.js";
 import type * as beacons from "../beacons.js";
 import type * as contacts from "../contacts.js";
+import type * as http from "../http.js";
+import type * as lib_authz from "../lib/authz.js";
 import type * as notifications from "../notifications.js";
 import type * as preferences from "../preferences.js";
 import type * as users from "../users.js";
@@ -25,6 +27,8 @@ declare const fullApi: ApiFromModules<{
   alerts: typeof alerts;
   beacons: typeof beacons;
   contacts: typeof contacts;
+  http: typeof http;
+  "lib/authz": typeof lib_authz;
   notifications: typeof notifications;
   preferences: typeof preferences;
   users: typeof users;

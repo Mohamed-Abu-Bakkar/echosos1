@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@/lib/types';
+import * as api from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -22,10 +23,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/me');
-      const data = await res.json();
+      const data = await api.getMe();
       if (data.authenticated && data.user) {
-        setUser(data.user);
+        setUser(data.user as User);
       } else {
         setUser(null);
       }
@@ -42,15 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (phone: string, password: string) => {
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password }),
-      });
-      const data = await res.json();
+      const data = await api.login(phone, password);
 
       if (data.success && data.user) {
-        setUser(data.user);
+        setUser(data.user as User);
         router.push('/');
         return { success: true, message: data.message || 'Login successful' };
       } else {
@@ -63,15 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (name: string, phone: string, password: string) => {
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, password }),
-      });
-      const data = await res.json();
+      const data = await api.register(name, phone, password);
 
       if (data.success && data.user) {
-        setUser(data.user);
+        setUser(data.user as User);
         router.push('/');
         return { success: true, message: data.message || 'Registration successful' };
       } else {
@@ -84,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      api.logout();
     } catch (error) {
       // Continue client logout even on network error
     } finally {

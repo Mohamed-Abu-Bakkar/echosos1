@@ -1,3 +1,4 @@
+import { useRouter } from "next/navigation";
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -18,22 +19,27 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { NotificationItem, NotificationType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
+import * as api from '@/lib/api';
 
 interface NotificationsScreenProps {
   onNavigate?: (screen: string) => void;
 }
 
 export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  // Route guard: require an active session
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+  }, [loading, user, router]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activeFilter, setActiveFilter] = useState<'ALL' | NotificationType>('ALL');
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchNotifications = async (filter: string) => {
     try {
-      const url = filter === 'ALL' ? '/api/notifications' : `/api/notifications?type=${filter}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await api.getNotifications(filter === 'ALL' ? undefined : filter);
       if (data.success && data.notifications) {
         setNotifications(data.notifications);
       }
@@ -48,7 +54,7 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
 
   const markAllAsRead = async () => {
     try {
-      await fetch('/api/notifications', { method: 'POST' });
+      await api.markNotificationsRead();
       setNotifications((prev) =>
         prev.map((item) => ({ ...item, is_read: true }))
       );

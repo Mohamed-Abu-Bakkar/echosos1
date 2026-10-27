@@ -1,46 +1,60 @@
 'use client';
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  AlertTriangle, 
-  MapPin, 
-  Phone, 
-  ExternalLink, 
-  ShieldCheck, 
-  Clock, 
-  Radio, 
+import {
+  AlertTriangle,
+  MapPin,
+  Phone,
+  ExternalLink,
+  ShieldCheck,
+  Clock,
+  Radio,
   ArrowLeft,
   Share2,
-  CheckCircle2
+  CheckCircle2,
 } from 'lucide-react';
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import * as api from '@/lib/api';
 
-export default function EmergencyTrackPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const resolvedParams = use(params);
+export default function EmergencyTrackPage() {
   const [alertData, setAlertData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [eventId, setEventId] = useState('');
+  const [victim, setVictim] = useState({ name: 'an EchoSOS user', phone: '' });
 
   useEffect(() => {
-    fetch('/api/alert')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setAlertData(data.alertState);
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id') || '';
+    setEventId(id);
+
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    api
+      .getAlertByEventId(id)
+      .then((res) => {
+        if (res.success && res.alertState) {
+          setAlertData(res.alertState);
+          if (res.alertState.user_id) {
+            return api.getProfile().then((p) => {
+              if (p.success && p.user) {
+                setVictim({ name: p.user.name || 'an EchoSOS user', phone: p.user.phone || '' });
+              }
+            });
+          }
         }
       })
       .finally(() => setLoading(false));
-  }, [resolvedParams]);
+  }, []);
 
-  const latitude = alertData?.latitude || 10.8247;
-  const longitude = alertData?.longitude || 78.6956;
-  const detectedAt = alertData?.detectedAt || '10:24 AM';
+  const latitude = typeof alertData?.latitude === 'number' ? alertData.latitude : null;
+  const longitude = typeof alertData?.longitude === 'number' ? alertData.longitude : null;
+  const detectedAt = alertData?.detected_at || '-';
 
   return (
     <div className="w-full flex-1 flex justify-center items-start">
@@ -68,7 +82,7 @@ export default function EmergencyTrackPage({
             </div>
             <h1 className="text-xl font-black">Emergency Distress Active</h1>
             <p className="text-xs text-white/90">
-              Live broadcast from Nithish&apos;s ESP32-S3 Safety Beacon (Alert #{resolvedParams.id})
+              Live broadcast from {victim.name}&rsquo;s beacon (Alert #{eventId || alertData?.event_id || '-'})
             </p>
           </div>
         </div>
@@ -80,24 +94,30 @@ export default function EmergencyTrackPage({
             <div className="flex items-center space-x-3">
               <Avatar className="w-12 h-12 ring-2 ring-red-100">
                 <AvatarFallback className="bg-[#0B3C85] text-white font-bold">
-                  NK
+                  {victim.name.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="text-sm font-black text-[#0F172A]">Nithish</h3>
-                <span className="text-xs text-slate-500 font-mono">+91 98765 43210</span>
+                <h3 className="text-sm font-black text-[#0F172A]">{victim.name}</h3>
+                {victim.phone && (
+                  <span className="text-xs text-slate-500 font-mono block mt-0.5">
+                    {victim.phone}
+                  </span>
+                )}
                 <span className="text-[10px] bg-red-50 text-[#E52E3D] px-1.5 py-0.2 rounded font-bold block mt-0.5 w-fit">
                   Distress Broadcasted
                 </span>
               </div>
             </div>
 
-            <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9">
-              <a href="tel:+919876543210">
-                <Phone className="w-3.5 h-3.5 mr-1 fill-white" />
-                Call
-              </a>
-            </Button>
+            {victim.phone && (
+              <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9">
+                <a href={`tel:${victim.phone}`}>
+                  <Phone className="w-3.5 h-3.5 mr-1 fill-white" />
+                  Call
+                </a>
+              </Button>
+            )}
           </div>
 
           {/* Map & Coordinates */}
@@ -110,20 +130,22 @@ export default function EmergencyTrackPage({
                 <div>
                   <h4 className="text-xs font-bold text-[#0F172A]">GPS Location</h4>
                   <p className="text-[11px] font-mono text-slate-500">
-                    {latitude}° N, {longitude}° E
+                    {latitude !== null ? `${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°` : '—'}
                   </p>
                 </div>
               </div>
 
-              <a
-                href={`https://maps.google.com/?q=${latitude},${longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0B3C85] bg-blue-50 px-2.5 py-1 rounded-lg hover:underline"
-              >
-                <span>Navigate</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+              {latitude !== null && longitude !== null && (
+                <a
+                  href={`https://maps.google.com/?q=${latitude},${longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0B3C85] bg-blue-50 px-2.5 py-1 rounded-lg hover:underline"
+                >
+                  <span>Navigate</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
 
             {/* Radar Simulation */}

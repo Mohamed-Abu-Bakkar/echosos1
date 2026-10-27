@@ -32,6 +32,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/lib/auth-context';
+import * as api from '@/lib/api';
 
 interface SettingsScreenProps {
   onNavigate?: (screen: string) => void;
@@ -39,8 +40,13 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
-  const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
+  const { user, logout, refreshUser, loading } = useAuth();
+
+  // Route guard: require an active session
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+  }, [loading, user, router]);
 
   const [darkMode, setDarkMode] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -55,11 +61,11 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
 
   // Load preferences from backend
   useEffect(() => {
-    fetch('/api/user/preferences')
-      .then((res) => res.json())
+    api
+      .getPreferences()
       .then((data) => {
         if (data.success && data.preferences) {
-          setDarkMode(Boolean(data.preferences.darkMode));
+          setDarkMode(Boolean(data.preferences.dark_mode));
         }
       })
       .catch(() => {});
@@ -68,19 +74,15 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
   const handleDarkModeToggle = async (checked: boolean) => {
     setDarkMode(checked);
     try {
-      await fetch('/api/user/preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ darkMode: checked }),
-      });
+      await api.updatePreferences({ darkMode: checked });
     } catch (err) {
       console.error('Failed to save dark mode:', err);
     }
   };
 
   const handleOpenAccountDialog = () => {
-    setProfileName(user?.name || 'Nithish');
-    setProfilePhone(user?.phone || '+91 98765 43210');
+    setProfileName(user?.name || '');
+    setProfilePhone(user?.phone || '');
     setProfilePassword('');
     setProfileSuccess(null);
     setShowAccountDialog(true);
@@ -92,15 +94,16 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
     setProfileSuccess(null);
 
     try {
-      const payload: any = { name: profileName, phone: profilePhone };
-      if (profilePassword) payload.password = profilePassword;
+      const payload: { name: string; phone: string; passwordHash?: string } = {
+        name: profileName,
+        phone: profilePhone,
+      };
+      if (profilePassword) {
+        const { hashPassword } = await import('@/lib/session');
+        payload.passwordHash = await hashPassword(profilePassword);
+      }
 
-      const res = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
+      const data = await api.updateProfile(payload);
       if (data.success) {
         setProfileSuccess('Profile updated successfully!');
         await refreshUser();
@@ -161,7 +164,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
       iconColor: 'text-purple-600',
       bgColor: 'bg-purple-50/70',
       borderColor: 'border-purple-100',
-      action: () => alert('Language: English (US) • Audio Alerts: Enabled'),
+      action: () => onNavigate ? onNavigate('settings') : router.push('/settings'),
     },
     {
       id: 'beacon',
@@ -181,7 +184,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
       iconColor: 'text-rose-600',
       bgColor: 'bg-rose-50/70',
       borderColor: 'border-rose-100',
-      action: () => alert('High-Precision GPS & BLE Background telemetry active.'),
+      action: () => onNavigate ? onNavigate('beacon') : router.push('/beacon'),
     },
     {
       id: 'notifications',
@@ -281,10 +284,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
         </div>
 
         {/* 7. About EchoSOS (Cyan Info Icon | Version 1.0.0 | >) */}
-        <div
-          onClick={() => alert('EchoSOS v1.0.0 (Build 2026.1). Connected to ESP32 Hardware Mesh.')}
-          className="p-3.5 rounded-2xl bg-cyan-50/70 border border-cyan-100 flex items-center justify-between cursor-pointer hover:shadow-xs transition-all"
-        >
+        <div className="p-3.5 rounded-2xl bg-cyan-50/70 border border-cyan-100 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-xl bg-white shadow-xs text-cyan-600">
               <Info className="w-4 h-4" />
@@ -294,11 +294,10 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
                 About EchoSOS
               </h4>
               <p className="text-[11px] text-slate-500 font-medium">
-                Version 1.0.0
+                Emergency safety with ESP32 BLE beacons
               </p>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
         </div>
       </div>
 

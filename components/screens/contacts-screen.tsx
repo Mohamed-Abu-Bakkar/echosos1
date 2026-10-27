@@ -1,3 +1,4 @@
+import { useRouter } from "next/navigation";
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -36,13 +37,22 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmergencyContact } from '@/lib/types';
+import * as api from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 
 interface ContactsScreenProps {
   onNavigate?: (screen: string) => void;
 }
 
 export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
+
+  // Route guard: require an active session
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+  }, [loading, user, router]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -57,8 +67,7 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
 
   const fetchContacts = async () => {
     try {
-      const res = await fetch('/api/contacts');
-      const data = await res.json();
+      const data = await api.getContacts();
       if (data.success && data.contacts) {
         setContacts(data.contacts);
       }
@@ -96,33 +105,25 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
 
     try {
       if (editingId) {
-        // Edit existing contact via PUT
-        const res = await fetch(`/api/contacts/${editingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newName,
-            phone: newPhone,
-            relationship: newRelationship,
-            is_primary: isPrimary,
-          }),
+        // Edit existing contact
+        const data = await api.updateContact(String(editingId), {
+          name: newName,
+          phone: newPhone,
+          relationship: newRelationship,
+          is_primary: isPrimary,
         });
-        if (res.ok) {
+        if (data.success) {
           await fetchContacts();
         }
       } else {
-        // Add new contact via POST
-        const res = await fetch('/api/contacts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newName,
-            phone: newPhone,
-            relationship: newRelationship,
-            is_primary: isPrimary,
-          }),
+        // Add new contact
+        const data = await api.createContact({
+          name: newName,
+          phone: newPhone,
+          relationship: newRelationship,
+          is_primary: isPrimary,
         });
-        if (res.ok) {
+        if (data.success) {
           await fetchContacts();
         }
       }
@@ -137,8 +138,8 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
   const handleDeleteContact = async (id: number) => {
     if (confirm('Are you sure you want to remove this emergency contact?')) {
       try {
-        const res = await fetch(`/api/contacts/${id}`, { method: 'DELETE' });
-        if (res.ok) {
+        const res = await api.deleteContact(String(id));
+        if (res.success) {
           setContacts((prev) => prev.filter((c) => c.id !== id));
         }
       } catch (err) {
@@ -181,10 +182,19 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
             <DropdownMenuItem onClick={handleOpenAddSheet}>
               + Add New Contact
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => alert('Broadcasting test SMS to contacts...')}>
-              Test SOS Dispatch
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => alert('Exporting contact records...')}>
+            <DropdownMenuItem
+              onClick={() => {
+                const blob = new Blob([JSON.stringify(contacts, null, 2)], {
+                  type: 'application/json',
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'echosos-contacts.json';
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
               Export Contacts
             </DropdownMenuItem>
           </DropdownMenuContent>
