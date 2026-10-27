@@ -4,32 +4,20 @@
  * Same response shapes as the former Next /api routes, backed by Convex.
  */
 
-import { convexQuery, convexMutation } from './convex-client';
+import { convexQuery, convexMutation } from "./convex-client";
 import {
   clearSession,
   getSession,
   hashPassword,
   setSession,
   StoredSession,
-} from './session';
+} from "./session";
 
 export interface ApiUser {
   id: string;
   name: string;
   phone: string;
   created_at?: string;
-}
-
-/** Convex docs use `_id`; UI layers key on `id`. */
-function mapDoc<T extends { _id: string }>(doc: T | null | undefined): any {
-  if (!doc) return doc ?? null;
-  const { _id, ...rest } = doc;
-  return { id: _id, ...rest };
-}
-
-function mapDocs<T extends { _id: string }>(docs: T[] | null | undefined): any[] {
-  if (!docs) return [];
-  return docs.map((d) => mapDoc(d)!);
 }
 
 function requireUserId(): string | null {
@@ -45,11 +33,18 @@ export async function getMe(): Promise<{
   const session = getSession();
   if (!session) return { authenticated: false, user: null };
   try {
-    const user = await convexQuery('users.js:getUserById', { userId: session.userId });
+    const user = await convexQuery("users.js:getUserById", {
+      userId: session.userId,
+    });
     if (user) {
       return {
         authenticated: true,
-        user: { id: user._id, name: user.name, phone: user.phone, created_at: user.created_at },
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          created_at: user.created_at,
+        },
       };
     }
     return {
@@ -71,29 +66,34 @@ export async function login(
   if (!phone || !password) {
     return {
       success: false,
-      message: 'Please provide both mobile number and password',
+      message: "Please provide both mobile number and password",
     };
   }
 
   try {
-    const result = await convexMutation('users.js:login', { phone, password });
+    const result = await convexMutation("users.js:login", { phone, password });
     if (!result?.success || !result.user) {
       return {
         success: false,
-        message: result?.message || 'Invalid phone number or password.',
+        message: result?.message || "Invalid phone number or password.",
       };
     }
     const user = result.user;
     setSession(user._id, user.name, user.phone);
     return {
       success: true,
-      message: result.message || 'Login successful',
-      user: { id: user._id, name: user.name, phone: user.phone, created_at: user.created_at },
+      message: result.message || "Login successful",
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        created_at: user.created_at,
+      },
     };
   } catch {
     return {
       success: false,
-      message: 'Could not reach the server. Check your connection and try again.',
+      message: "Could not reach the server. Check your connection and try again.",
     };
   }
 }
@@ -106,33 +106,35 @@ export async function register(
   if (!name || !phone || !password) {
     return {
       success: false,
-      message: 'Name, phone number, and password are required',
+      message: "Name, phone number, and password are required",
     };
   }
   if (password.length < 6) {
-    return { success: false, message: 'Password must be at least 6 characters' };
+    return { success: false, message: "Password must be at least 6 characters" };
   }
 
   try {
-    const existing = await convexQuery('users:getUserByPhone', { phone });
+    const existing = await convexQuery("users.js:getUserByPhone", { phone });
     if (existing) {
       return {
         success: false,
-        message: 'An account with this phone number already exists',
+        message: "An account with this phone number already exists",
       };
     }
 
     const passwordHash = await hashPassword(password);
-    const newUserId: string = await convexMutation('users.js:createUser', {
+    const newUserId: string = await convexMutation("users.js:createUser", {
       name,
       phone,
       passwordHash,
     });
-    const created = await convexQuery('users.js:getUserById', { userId: newUserId });
+    const created = await convexQuery("users.js:getUserById", {
+      userId: newUserId,
+    });
     setSession(newUserId, created.name, created.phone);
     return {
       success: true,
-      message: 'Account registered successfully',
+      message: "Account registered successfully",
       user: {
         id: newUserId,
         name: created.name,
@@ -140,9 +142,9 @@ export async function register(
         created_at: created.created_at,
       },
     };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Registration failed';
-    return { success: false, message: msg.includes('already exists') ? msg : 'Registration failed' };
+  } catch (err: any) {
+    const msg = err?.message || "Registration failed";
+    return { success: false, message: msg.includes("already exists") ? msg : "Registration failed" };
   }
 }
 
@@ -156,7 +158,7 @@ export async function getAlert(): Promise<{ success: boolean; alertState: any }>
   const userId = requireUserId();
   if (!userId) return { success: false, alertState: null };
   try {
-    const alertState = await convexQuery('alerts.js:getActiveAlert', { userId });
+    const alertState = await convexQuery("alerts.js:getActiveAlert", { userId });
     return { success: true, alertState };
   } catch {
     return { success: false, alertState: null };
@@ -168,7 +170,7 @@ export async function getAlertByEventId(eventId: string): Promise<{
   alertState: any;
 }> {
   try {
-    const alertState = await convexQuery('alerts.js:getAlertByEventId', { eventId });
+    const alertState = await convexQuery("alerts.js:getAlertByEventId", { eventId });
     return { success: true, alertState };
   } catch {
     return { success: false, alertState: null };
@@ -186,10 +188,10 @@ export async function triggerAlert(body: {
   alert?: { id: string; eventId: string; beaconId: string };
 }> {
   const userId = requireUserId();
-  if (!userId) return { success: false, message: 'Unauthorized' };
+  if (!userId) return { success: false, message: "Unauthorized" };
 
   try {
-    const result = await convexMutation('alerts.js:triggerAlert', {
+    const result = await convexMutation("alerts.js:triggerAlert", {
       userId,
       latitude: body.latitude,
       longitude: body.longitude,
@@ -198,7 +200,7 @@ export async function triggerAlert(body: {
     });
     return {
       success: true,
-      message: 'SOS Distress Signal Dispatched!',
+      message: "SOS Distress Signal Dispatched!",
       alert: {
         id: result.historyId,
         eventId: result.eventId,
@@ -206,7 +208,7 @@ export async function triggerAlert(body: {
       },
     };
   } catch {
-    return { success: false, message: 'Failed to trigger alert' };
+    return { success: false, message: "Failed to trigger alert" };
   }
 }
 
@@ -222,40 +224,40 @@ export async function cancelAlert(body: {
 }> {
   const userId = requireUserId();
   if (!userId) {
-    return { success: false, message: 'Unauthorized', status: 401 };
+    return { success: false, message: "Unauthorized", status: 401 };
   }
 
   try {
-    const result = await convexMutation('alerts.js:cancelAlert', {
+    const result = await convexMutation("alerts.js:cancelAlert", {
       userId,
       eventId: body.eventId,
       beaconId: body.beaconId,
       bleVerified: Boolean(body.bleVerified),
     });
 
-    if (result && result.cancelled === false && result.reason === 'event-id-mismatch') {
+    if (result && result.cancelled === false && result.reason === "event-id-mismatch") {
       return {
         success: false,
-        message: 'Event ID does not match the active SOS. Alert left open.',
+        message: "Event ID does not match the active SOS. Alert left open.",
         reason: result.reason,
         status: 409,
       };
     }
-    if (result && result.cancelled === false && result.reason === 'no-active-alert') {
+    if (result && result.cancelled === false && result.reason === "no-active-alert") {
       return {
         success: true,
-        message: 'No active alert to cancel.',
+        message: "No active alert to cancel.",
         reason: result.reason,
       };
     }
 
     return {
       success: true,
-      message: 'SOS Alert cancelled. Contacts have been updated.',
+      message: "SOS Alert cancelled. Contacts have been updated.",
       ...result,
     };
   } catch {
-    return { success: false, message: 'Failed to cancel alert', status: 500 };
+    return { success: false, message: "Failed to cancel alert", status: 500 };
   }
 }
 
@@ -265,10 +267,10 @@ export async function getContacts(): Promise<{ success: boolean; contacts: any[]
   const userId = requireUserId();
   if (!userId) return { success: false, contacts: [] };
   try {
-    const contacts = await convexQuery('contacts.js:getContacts', { userId });
+    const contacts = await convexQuery("contacts.js:getContacts", { userId });
     return { success: true, contacts: mapDocs(contacts) };
   } catch (err) {
-    console.error('getContacts failed:', err);
+    console.error("getContacts failed:", err);
     return { success: false, contacts: [] };
   }
 }
@@ -281,27 +283,27 @@ export async function createContact(body: {
   photo_url?: string;
 }): Promise<{ success: boolean; message?: string; contact?: any }> {
   const userId = requireUserId();
-  if (!userId) return { success: false, message: 'Unauthorized' };
+  if (!userId) return { success: false, message: "Unauthorized" };
   if (!body.name || !body.phone) {
-    return { success: false, message: 'Name and phone are required' };
+    return { success: false, message: "Name and phone are required" };
   }
 
   try {
-    const contactId = await convexMutation('contacts.js:createContact', {
+    const contactId = await convexMutation("contacts.js:createContact", {
       userId,
       name: body.name,
       phone: body.phone,
-      relationship: body.relationship || 'Friend',
+      relationship: body.relationship || "Friend",
       isPrimary: Boolean(body.is_primary),
       photoUrl: body.photo_url,
     });
     return {
       success: true,
-      message: 'Contact added successfully',
+      message: "Contact added successfully",
       contact: { id: contactId, ...body },
     };
   } catch {
-    return { success: false, message: 'Invalid contact payload' };
+    return { success: false, message: "Invalid contact payload" };
   }
 }
 
@@ -316,13 +318,13 @@ export async function updateContact(
   }
 ): Promise<{ success: boolean; message?: string; contact?: any }> {
   const userId = requireUserId();
-  if (!userId) return { success: false, message: 'Unauthorized' };
-  if (!id || id === 'undefined' || id === 'null') {
-    return { success: false, message: 'Invalid contact id' };
+  if (!userId) return { success: false, message: "Unauthorized" };
+  if (!id || id === "undefined" || id === "null") {
+    return { success: false, message: "Invalid contact id" };
   }
 
   try {
-    const updated = await convexMutation('contacts.js:updateContact', {
+    const updated = await convexMutation("contacts.js:updateContact", {
       userId,
       contactId: id,
       name: body.name,
@@ -331,15 +333,15 @@ export async function updateContact(
       isPrimary: body.is_primary,
       photoUrl: body.photo_url,
     });
-    if (!updated) return { success: false, message: 'Contact not found' };
+    if (!updated) return { success: false, message: "Contact not found" };
     return {
       success: true,
-      message: 'Contact updated successfully',
+      message: "Contact updated successfully",
       contact: mapDoc(updated),
     };
   } catch (err) {
-    console.error('updateContact failed:', err);
-    return { success: false, message: 'Failed to update contact' };
+    console.error("updateContact failed:", err);
+    return { success: false, message: "Failed to update contact" };
   }
 }
 
@@ -347,21 +349,21 @@ export async function deleteContact(
   id: string
 ): Promise<{ success: boolean; message?: string }> {
   const userId = requireUserId();
-  if (!userId) return { success: false, message: 'Unauthorized' };
-  if (!id || id === 'undefined' || id === 'null') {
-    return { success: false, message: 'Invalid contact id' };
+  if (!userId) return { success: false, message: "Unauthorized" };
+  if (!id || id === "undefined" || id === "null") {
+    return { success: false, message: "Invalid contact id" };
   }
 
   try {
-    const deleted = await convexMutation('contacts.js:deleteContact', {
+    const deleted = await convexMutation("contacts.js:deleteContact", {
       userId,
       contactId: id,
     });
-    if (!deleted) return { success: false, message: 'Contact not found' };
-    return { success: true, message: 'Contact deleted successfully' };
+    if (!deleted) return { success: false, message: "Contact not found" };
+    return { success: true, message: "Contact deleted successfully" };
   } catch (err) {
-    console.error('deleteContact failed:', err);
-    return { success: false, message: 'Failed to delete contact' };
+    console.error("deleteContact failed:", err);
+    return { success: false, message: "Failed to delete contact" };
   }
 }
 
@@ -376,7 +378,7 @@ export async function getHistory(filter?: string): Promise<{
   const userId = requireUserId();
   if (!userId) return { success: false, count: 0, totalRecords: 0, history: [] };
   try {
-    const history = await convexQuery('alerts.js:getAlertHistory', {
+    const history = await convexQuery("alerts.js:getAlertHistory", {
       userId,
       filter,
     });
@@ -388,7 +390,7 @@ export async function getHistory(filter?: string): Promise<{
       history: rows,
     };
   } catch (err) {
-    console.error('getHistory failed:', err);
+    console.error("getHistory failed:", err);
     return { success: false, count: 0, totalRecords: 0, history: [] };
   }
 }
@@ -402,13 +404,13 @@ export async function getNotifications(type?: string): Promise<{
   const userId = requireUserId();
   if (!userId) return { success: false, notifications: [] };
   try {
-    const notifications = await convexQuery('notifications.js:getNotifications', {
+    const notifications = await convexQuery("notifications.js:getNotifications", {
       userId,
       type,
     });
     return { success: true, notifications: mapDocs(notifications) };
   } catch (err) {
-    console.error('getNotifications failed:', err);
+    console.error("getNotifications failed:", err);
     return { success: false, notifications: [] };
   }
 }
@@ -418,12 +420,12 @@ export async function markNotificationsRead(): Promise<{
   message?: string;
 }> {
   const userId = requireUserId();
-  if (!userId) return { success: false, message: 'Unauthorized' };
+  if (!userId) return { success: false, message: "Unauthorized" };
   try {
-    await convexMutation('notifications.js:markAllNotificationsRead', { userId });
-    return { success: true, message: 'All notifications marked as read' };
+    await convexMutation("notifications.js:markAllNotificationsRead", { userId });
+    return { success: true, message: "All notifications marked as read" };
   } catch {
-    return { success: false, message: 'Failed to mark notifications read' };
+    return { success: false, message: "Failed to mark notifications read" };
   }
 }
 
@@ -437,10 +439,10 @@ export async function getBeacon(): Promise<{
   const userId = requireUserId();
   if (!userId) return { success: false, beacon: null, nearbyDevices: [] };
   try {
-    const beacon = await convexQuery('beacons.js:getBeacon', { userId });
+    const beacon = await convexQuery("beacons.js:getBeacon", { userId });
     return { success: true, beacon: mapDoc(beacon), nearbyDevices: [] };
   } catch (err) {
-    console.error('getBeacon failed:', err);
+    console.error("getBeacon failed:", err);
     return { success: false, beacon: null, nearbyDevices: [] };
   }
 }
@@ -452,13 +454,13 @@ export async function pairBeacon(body: {
   batteryPercent?: number;
 }): Promise<{ success: boolean; message?: string; beacon?: any }> {
   const userId = requireUserId();
-  if (!userId) return { success: false, message: 'Unauthorized' };
+  if (!userId) return { success: false, message: "Unauthorized" };
   if (!body.deviceName || !body.macAddress) {
-    return { success: false, message: 'Device name and MAC address are required' };
+    return { success: false, message: "Device name and MAC address are required" };
   }
 
   try {
-    const beacon = await convexMutation('beacons.js:pairBeacon', {
+    const beacon = await convexMutation("beacons.js:pairBeacon", {
       userId,
       deviceName: body.deviceName,
       macAddress: body.macAddress,
@@ -471,8 +473,8 @@ export async function pairBeacon(body: {
       beacon: mapDoc(beacon),
     };
   } catch (err) {
-    console.error('pairBeacon failed:', err);
-    return { success: false, message: 'Failed to pair beacon' };
+    console.error("pairBeacon failed:", err);
+    return { success: false, message: "Failed to pair beacon" };
   }
 }
 
@@ -488,10 +490,10 @@ export async function scanBeacon(): Promise<{
   timestamp?: string;
 }> {
   try {
-    const { Capacitor } = await import('@capacitor/core');
+    const { Capacitor } = await import("@capacitor/core");
     const platform = Capacitor.getPlatform();
-    if (platform === 'ios' || platform === 'android') {
-      const { BackgroundBLEScanner } = await import('./ble-background-scanner');
+    if (platform === "ios" || platform === "android") {
+      const { BackgroundBLEScanner } = await import("./ble-background-scanner");
       const scanner = new BackgroundBLEScanner();
       await scanner.requestPermissions();
       if (!(await scanner.isAvailable())) {
@@ -499,7 +501,7 @@ export async function scanBeacon(): Promise<{
           success: false,
           scannedCount: 0,
           devices: [],
-          message: 'Bluetooth is unavailable or disabled.',
+          message: "Bluetooth is unavailable or disabled.",
         };
       }
 
@@ -520,7 +522,7 @@ export async function scanBeacon(): Promise<{
         scanner
           .startScanning((device) => {
             found.set(device.id, {
-              name: device.name || 'EchoSOS Beacon',
+              name: device.name || "EchoSOS Beacon",
               mac: device.id,
               signal: `${device.rssi} dBm`,
               available: true,
@@ -543,7 +545,7 @@ export async function scanBeacon(): Promise<{
         devices,
         message:
           devices.length === 0
-            ? 'No EchoSOS beacons found. Bring the beacon close and retry.'
+            ? "No EchoSOS beacons found. Bring the beacon close and retry."
             : undefined,
         timestamp: new Date().toISOString(),
       };
@@ -553,15 +555,15 @@ export async function scanBeacon(): Promise<{
       success: false,
       scannedCount: 0,
       devices: [],
-      message: 'BLE scanning requires the mobile app.',
+      message: "BLE scanning requires the mobile app.",
     };
   } catch (err) {
-    console.error('scanBeacon failed:', err);
+    console.error("scanBeacon failed:", err);
     return {
       success: false,
       scannedCount: 0,
       devices: [],
-      message: 'BLE scan failed. Check Bluetooth permissions.',
+      message: "BLE scan failed. Check Bluetooth permissions.",
     };
   }
 }
@@ -575,10 +577,10 @@ export async function getPreferences(): Promise<{
   const userId = requireUserId();
   if (!userId) return { success: false, preferences: null };
   try {
-    const preferences = await convexQuery('preferences.js:getPreferences', { userId });
+    const preferences = await convexQuery("preferences.js:getPreferences", { userId });
     return { success: true, preferences };
   } catch (err) {
-    console.error('getPreferences failed:', err);
+    console.error("getPreferences failed:", err);
     return { success: false, preferences: null };
   }
 }
@@ -590,18 +592,18 @@ export async function updatePreferences(body: {
   sosSensitivity?: string;
 }): Promise<{ success: boolean; message?: string }> {
   const userId = requireUserId();
-  if (!userId) return { success: false, message: 'Unauthorized' };
+  if (!userId) return { success: false, message: "Unauthorized" };
   try {
-    await convexMutation('preferences.js:updatePreferences', {
+    await convexMutation("preferences.js:updatePreferences", {
       userId,
       darkMode: body.darkMode,
       language: body.language,
       notificationsEnabled: body.notificationsEnabled,
       sosSensitivity: body.sosSensitivity,
     });
-    return { success: true, message: 'Preferences updated' };
+    return { success: true, message: "Preferences updated" };
   } catch {
-    return { success: false, message: 'Failed to update preferences' };
+    return { success: false, message: "Failed to update preferences" };
   }
 }
 
@@ -609,7 +611,7 @@ export async function getProfile(): Promise<{ success: boolean; user: any }> {
   const userId = requireUserId();
   if (!userId) return { success: false, user: null };
   try {
-    const user = await convexQuery('users.js:getUserById', { userId });
+    const user = await convexQuery("users.js:getUserById", { userId });
     return { success: true, user: mapDoc(user) };
   } catch {
     return { success: false, user: null };
@@ -622,18 +624,29 @@ export async function updateProfile(body: {
   passwordHash?: string;
 }): Promise<{ success: boolean; message?: string }> {
   const userId = requireUserId();
-  if (!userId) return { success: false, message: 'Unauthorized' };
+  if (!userId) return { success: false, message: "Unauthorized" };
   try {
-    await convexMutation('users:updateUserProfile', {
+    await convexMutation("users.js:updateUserProfile", {
       userId,
       name: body.name,
       phone: body.phone,
       passwordHash: body.passwordHash,
     });
-    return { success: true, message: 'Profile updated' };
+    return { success: true, message: "Profile updated" };
   } catch {
-    return { success: false, message: 'Failed to update profile' };
+    return { success: false, message: "Failed to update profile" };
   }
 }
 
 export type { StoredSession };
+
+function mapDoc<T extends { _id: string }>(doc: T | null | undefined): any {
+  if (!doc) return doc ?? null;
+  const { _id, ...rest } = doc;
+  return { id: _id, ...rest };
+}
+
+function mapDocs<T extends { _id: string }>(docs: T[] | null | undefined): any[] {
+  if (!docs) return [];
+  return docs.map((d) => mapDoc(d)!);
+}

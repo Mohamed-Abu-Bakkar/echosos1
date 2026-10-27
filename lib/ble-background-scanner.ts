@@ -14,7 +14,7 @@ import {
 } from './ble-protocol';
 
 export interface DiscoveredDevice {
-  id: string; // device ID (MAC on Android, UUID on iOS/web)
+  id: string;
   name: string | null;
   rssi: number;
   advertising: {
@@ -22,12 +22,10 @@ export interface DiscoveredDevice {
     manufacturerData?: Array<{ vendorId: number; data: string }>;
     txPowerLevel?: number;
   };
-  /** Parsed from manufacturer data (preferred) or name fallback. */
   advertisement?: BeaconAdvertisement;
   mode?: BeaconMode;
   beaconId?: string;
   eventId?: string | null;
-  /** True when identity came from manufacturer payload, not just the name. */
   hasVerifiedAdvertisement?: boolean;
 }
 
@@ -39,15 +37,6 @@ export interface CancelVerificationResult {
   message: string;
 }
 
-/**
- * BLE scanner + GATT reader for EchoSOS beacons.
- *
- * Advertisement identity is taken from manufacturer data when present;
- * the local name is only a truncated-name fallback, never sole auth.
- *
- * During cancellation the app connects and reads the Event State
- * characteristic so the backend cancel can be bound to a real event ID.
- */
 export class BackgroundBLEScanner {
   private foundDevices: Map<string, DiscoveredDevice> = new Map();
   private isScanning = false;
@@ -55,18 +44,14 @@ export class BackgroundBLEScanner {
   private scanInterval: NodeJS.Timeout | null = null;
   private onDeviceCallback: ((device: DiscoveredDevice) => void) | null = null;
 
-  private getPlatform(): string {
-    return (Capacitor as { getPlatform: () => string }).getPlatform();
-  }
-
   async isAvailable(): Promise<boolean> {
-    const platform = this.getPlatform();
+    const platform = (Capacitor as any).getPlatform();
     if (platform !== 'ios' && platform !== 'android') {
       return true;
     }
 
     try {
-      const result = await BleClient.isEnabled();
+      const result: any = await BleClient.isEnabled();
       return result === true;
     } catch (error) {
       console.error('BLE availability check error:', error);
@@ -75,7 +60,7 @@ export class BackgroundBLEScanner {
   }
 
   async requestPermissions(): Promise<void> {
-    const platform = this.getPlatform();
+    const platform = (Capacitor as any).getPlatform();
     if (platform === 'ios' || platform === 'android') {
       try {
         await BleClient.initialize();
@@ -85,11 +70,10 @@ export class BackgroundBLEScanner {
     }
   }
 
-  /**
-   * Start scanning for EchoSOS beacons.
-   * Filters by EchoSOS service UUID when the stack supports it, then
-   * resolves identity from manufacturer data / name via the protocol.
-   */
+  private getPlatform(): string {
+    return (Capacitor as { getPlatform: () => string }).getPlatform();
+  }
+
   async startScanning(onDeviceCallback: (device: DiscoveredDevice) => void): Promise<void> {
     this.onDeviceCallback = onDeviceCallback;
     this.isScanning = true;
@@ -118,8 +102,6 @@ export class BackgroundBLEScanner {
         const advertisement = resolveAdvertisement(deviceName, manufacturerData);
         const nameMode = modeFromName(deviceName);
 
-        // Accept when manufacturer payload matches, or name still hints EchoSOS
-        // (fallback path for beacons that have not shipped manufacturer data yet).
         if (!advertisement && !nameMode) {
           return;
         }
@@ -159,7 +141,6 @@ export class BackgroundBLEScanner {
         this.scanCallback
       );
     } catch {
-      // Some stacks reject empty/unknown service filters on web — retry broad scan.
       await BleClient.requestLEScan(
         {
           services: [],
@@ -222,10 +203,6 @@ export class BackgroundBLEScanner {
     return emergencyDevices.length > 0 ? emergencyDevices[0] : null;
   }
 
-  /**
-   * Connect to a beacon and read the Event State characteristic.
-   * Used during cancellation to verify the active event ID on-device.
-   */
   async readGattEventState(deviceId: string): Promise<GattEventState | null> {
     const platform = this.getPlatform();
     if (platform !== 'ios' && platform !== 'android') {
@@ -253,11 +230,6 @@ export class BackgroundBLEScanner {
     }
   }
 
-  /**
-   * Best-effort cancel verification over GATT.
-   * `reachable: false` means we could not connect (web/unavailable) —
-   * callers should still allow backend cancel with the known event ID.
-   */
   async verifyEventForCancel(
     deviceId: string,
     expectedEventId: string,
@@ -298,7 +270,6 @@ export class BackgroundBLEScanner {
     };
   }
 
-  /** Push an event ID to the beacon's Event State characteristic (app-triggered SOS). */
   async writeEventState(
     deviceId: string,
     mode: BeaconMode,

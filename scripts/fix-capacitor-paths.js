@@ -1,39 +1,43 @@
+#!/usr/bin/env node
 /**
- * Post-build step for Capacitor Android.
+ * Fix Capacitor Android static asset paths.
  *
- * Next.js static export writes absolute asset paths like
- *   <link rel="stylesheet" href="/_next/static/chunks/xxxx.css">
- * On Android's file:// WebView those resolve to file:///_next/... which
- * doesn't exist. Rewrite them to relative paths so they resolve against
- * the app's asset root (file:///android_asset/public/...).
+ * Next.js static export writes absolute asset paths like:
+ *   <link rel="stylesheet" href="/_next/static/chunks/xxx.css">
+ *   <script src="/_next/static/chunks/xxx.js"></script>
+ *
+ * On Android's file:// WebView, absolute paths resolve to
+ * file:///_next/static/... which does not exist. Assets live at
+ * file:///android_asset/public/_next/static/...
+ *
+ * This script rewrites all /_next/ references to ./_next/ and adds
+ * <base href="./"> so relative assets resolve correctly.
  *
  * Run after `npm run build`:
  *   node scripts/fix-capacitor-paths.js
  */
 
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const OUT_DIR = join(process.cwd(), "out");
-const ASSET_PREFIX = 'href="/_next/';
-const REPLACEMENT = 'href="./_next/';
 
-function rewriteHtml(filePath) {
+function rewriteHtml(filePath: string) {
   let html = readFileSync(filePath, "utf8");
   let changed = false;
 
-  // Rewrite stylesheet hrefs
-  const before = html;
-  html = html.replace(new RegExp(ASSET_PREFIX, "g"), REPLACEMENT);
-  if (html !== before) changed = true;
+  // Rewrite stylesheet hrefs from absolute to relative
+  const beforeHref = html;
+  html = html.replace(/href="\/_next\//g, 'href="./_next/');
+  if (html !== beforeHref) changed = true;
 
-  // Rewrite script srcs too
-  const before2 = html;
-  html = html.replace(new RegExp('src="/_next/', "g"), 'src="./_next/');
-  if (html !== before2) changed = true;
+  // Rewrite script srcs from absolute to relative
+  const beforeSrc = html;
+  html = html.replace(/src="\/_next\//g, 'src="./_next/');
+  if (html !== beforeSrc) changed = true;
 
-  // Add a base tag so all relative assets resolve against the asset root
-  if (!html.includes('<base')) {
+  // Add <base href="./"> if not present (must be right after <head>)
+  if (!html.includes('<base href="./">')) {
     html = html.replace("<head>", '<head><base href="./">');
     changed = true;
   }
@@ -44,14 +48,22 @@ function rewriteHtml(filePath) {
   }
 }
 
-function walk(dir) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+function walk(dir: string) {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
     const full = join(dir, entry.name);
-    if (entry.isDirectory()) walk(full);
-    else if (entry.name.endsWith(".html")) rewriteHtml(full);
+    if (entry.isDirectory()) {
+      walk(full);
+    } else if (entry.name.endsWith(".html")) {
+      rewriteHtml(full);
+    }
   }
 }
 
-if (!mkdirSync) {} // no-op
+if (!existsSync(OUT_DIR)) {
+  console.error(`Output directory ${OUT_DIR} does not exist. Run 'npm run build' first.`);
+  process.exit(1);
+}
+
 walk(OUT_DIR);
-console.log("Done.");
+console.log("Done. All HTML files patched with relative asset paths.");

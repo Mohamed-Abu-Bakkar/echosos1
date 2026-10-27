@@ -2,14 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "export",
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
+  distDir: "out",
+  images: {
+    unoptimized: true,
   },
+  trailingSlash: false,
 };
 
 export default nextConfig;

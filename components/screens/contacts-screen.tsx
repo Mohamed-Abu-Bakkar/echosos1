@@ -55,7 +55,7 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
   }, [loading, user, router]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form State
   const [newName, setNewName] = useState('');
@@ -135,7 +135,7 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
     }
   };
 
-  const handleDeleteContact = async (id: number) => {
+  const handleDeleteContact = async (id: string) => {
     if (confirm('Are you sure you want to remove this emergency contact?')) {
       try {
         const res = await api.deleteContact(String(id));

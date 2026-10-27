@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/fix-capacitor-paths.js",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint"

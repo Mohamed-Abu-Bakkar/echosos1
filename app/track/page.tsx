@@ -59,7 +59,6 @@ export default function EmergencyTrackPage() {
   return (
     <div className="w-full flex-1 flex justify-center items-start">
       <div className="w-full max-w-md min-h-screen bg-[#F4F8FF] flex flex-col relative sm:shadow-xl sm:border sm:border-slate-200/80 sm:rounded-2xl overflow-hidden pb-10">
-        {/* Urgent Header */}
         <div className="bg-[#E52E3D] text-white p-5 rounded-b-3xl shadow-lg relative">
           <div className="flex items-center justify-between pb-3">
             <Link
@@ -87,9 +86,7 @@ export default function EmergencyTrackPage() {
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-4 space-y-3.5 -mt-2 relative z-10">
-          {/* Victim Contact Card */}
           <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Avatar className="w-12 h-12 ring-2 ring-red-100">
@@ -120,7 +117,6 @@ export default function EmergencyTrackPage() {
             )}
           </div>
 
-          {/* Map & Coordinates */}
           <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -148,7 +144,6 @@ export default function EmergencyTrackPage() {
               )}
             </div>
 
-            {/* Radar Simulation */}
             <div className="relative w-full h-40 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
               <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:16px_16px] opacity-60" />
               <div className="absolute w-24 h-24 rounded-full bg-[#E52E3D]/20 animate-ping" />
@@ -164,7 +159,6 @@ export default function EmergencyTrackPage() {
             </div>
           </div>
 
-          {/* Emergency Hotline Buttons */}
           <div className="grid grid-cols-2 gap-2 pt-1">
             <Button asChild className="bg-[#E52E3D] hover:bg-[#c41c2a] text-white font-bold h-12 shadow-md">
               <a href="tel:112">

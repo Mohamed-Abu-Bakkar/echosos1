@@ -210,7 +210,7 @@ export function HistoryScreen({ onNavigate }: HistoryScreenProps) {
               </div>
 
               {/* Color Coded Status Badge */}
-              <div>{getStatusBadge(item.status_badge)}</div>
+              <div>{getStatusBadge(item.status_badge as StatusBadge)}</div>
             </div>
 
             {/* Coordinates / Details row if present */}

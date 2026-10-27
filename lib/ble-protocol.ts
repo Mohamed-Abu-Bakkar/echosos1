@@ -68,6 +68,8 @@ export interface GattEventState {
   batteryPercent?: number;
 }
 
+export type BleBinary = string | Uint8Array | ArrayBuffer | DataView;
+
 function isBeaconModeByte(value: number): boolean {
   return (
     value === BEACON_MODE.registration.charCodeAt(0) ||
@@ -80,48 +82,6 @@ export function parseMode(value: number): BeaconMode | null {
   if (!isBeaconModeByte(value)) return null;
   return String.fromCharCode(value) as BeaconMode;
 }
-
-export function modeFromName(name: string | null | undefined): BeaconMode | null {
-  if (!name) return null;
-  if (name.startsWith(MODE_PREFIX.r)) return BEACON_MODE.registration;
-  if (name.startsWith(MODE_PREFIX.e)) return BEACON_MODE.emergency;
-  if (name.startsWith(MODE_PREFIX.c)) return BEACON_MODE.cancel;
-  return null;
-}
-
-export function beaconIdFromName(name: string | null | undefined): string | null {
-  if (!name) return null;
-  for (const mode of ['r', 'e', 'c'] as const) {
-    const prefix = MODE_PREFIX[mode];
-    if (name.startsWith(prefix)) {
-      const suffix = name.slice(prefix.length);
-      return /^[0-9a-fA-F]{1,8}$/.test(suffix)
-        ? suffix.toLowerCase().padStart(8, '0')
-        : null;
-    }
-  }
-  return null;
-}
-
-/** 4-byte big-endian hex id ↔ display string (8 lowercase hex chars). */
-export function bytesToId(bytes: Uint8Array, offset: number): string {
-  const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 4);
-  return view.getUint32(0, false)
-    .toString(16)
-    .padStart(8, '0');
-}
-
-export function idToBytes(id: string): Uint8Array {
-  const numeric = parseInt(id, 16);
-  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 0xffffffff) {
-    throw new Error(`Invalid EchoSOS id: ${id}`);
-  }
-  const out = new Uint8Array(4);
-  new DataView(out.buffer).setUint32(0, numeric, false);
-  return out;
-}
-
-export type BleBinary = string | Uint8Array | ArrayBuffer | DataView;
 
 function toUint8Array(data: BleBinary): Uint8Array | null {
   if (typeof data === 'string') {
@@ -145,7 +105,6 @@ function toUint8Array(data: BleBinary): Uint8Array | null {
   return null;
 }
 
-/** Encode compact advertisement / GATT state payload. */
 export function encodeBeaconState(
   mode: BeaconMode,
   beaconId: string,
@@ -180,10 +139,6 @@ function decodeState(bytes: Uint8Array): GattEventState | null {
   return { mode, beaconId, eventId, batteryPercent };
 }
 
-/**
- * Decode manufacturer data for vendor 0xE505.
- * Accepts hex string, Uint8Array, ArrayBuffer, or DataView (Capacitor).
- */
 export function decodeManufacturerData(
   vendorId: number,
   data: BleBinary
@@ -194,17 +149,12 @@ export function decodeManufacturerData(
   return decodeState(bytes);
 }
 
-/** Decode GATT Event State characteristic value. */
 export function decodeGattEventState(data: BleBinary): GattEventState | null {
   const bytes = toUint8Array(data);
   if (!bytes) return null;
   return decodeState(bytes);
 }
 
-/**
- * Resolve beacon advertisement identity from scan fields.
- * Manufacturer data is authoritative when present; name is fallback only.
- */
 export function resolveAdvertisement(
   name: string | null | undefined,
   manufacturerData?: Array<{ vendorId: number; data: BleBinary }>
@@ -241,14 +191,53 @@ export function resolveAdvertisement(
   return null;
 }
 
+function isBeaconMode(value: number): boolean {
+  return isBeaconModeByte(value);
+}
+
+export function modeFromName(name: string | null | undefined): BeaconMode | null {
+  if (!name) return null;
+  if (name.startsWith(MODE_PREFIX.r)) return BEACON_MODE.registration;
+  if (name.startsWith(MODE_PREFIX.e)) return BEACON_MODE.emergency;
+  if (name.startsWith(MODE_PREFIX.c)) return BEACON_MODE.cancel;
+  return null;
+}
+
+export function beaconIdFromName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  for (const mode of ['r', 'e', 'c'] as const) {
+    const prefix = MODE_PREFIX[mode];
+    if (name.startsWith(prefix)) {
+      const suffix = name.slice(prefix.length);
+      return /^[0-9a-fA-F]{1,8}$/.test(suffix)
+        ? suffix.toLowerCase().padStart(8, '0')
+        : null;
+    }
+  }
+  return null;
+}
+
+export function bytesToId(bytes: Uint8Array, offset: number): string {
+  const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 4);
+  return view.getUint32(0, false)
+    .toString(16)
+    .padStart(8, '0');
+}
+
+export function idToBytes(id: string): Uint8Array {
+  const numeric = parseInt(id, 16);
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 0xffffffff) {
+    throw new Error(`Invalid EchoSOS id: ${id}`);
+  }
+  const out = new Uint8Array(4);
+  new DataView(out.buffer).setUint32(0, numeric, false);
+  return out;
+}
+
 export function buildBeaconLocalName(mode: BeaconMode, beaconId: string): string {
   return `${MODE_PREFIX[mode]}${beaconId}`;
 }
 
-/**
- * Compare GATT state against the event the app intends to cancel.
- * Returns ok=false when the device is reachable but the IDs disagree.
- */
 export function verifyCancelTarget(
   state: GattEventState | null,
   expectedEventId: string,
@@ -275,7 +264,6 @@ export function verifyCancelTarget(
   return { ok: true };
 }
 
-/** Generate a unique 8-hex event id (fits compact BLE layout). */
 export function generateEventId(): string {
   const bytes = new Uint8Array(4);
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -283,7 +271,6 @@ export function generateEventId(): string {
   } else {
     for (let i = 0; i < 4; i++) bytes[i] = Math.floor(Math.random() * 256);
   }
-  // Avoid all-zero which is reserved for "no event".
   if (bytes.every((b) => b === 0)) bytes[0] = 1;
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))

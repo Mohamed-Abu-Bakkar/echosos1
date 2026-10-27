@@ -2,15 +2,15 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { User } from '@/lib/types';
 import * as api from '@/lib/api';
+import { User } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (phone: string, password: string) => Promise<{ success: boolean; message: string }>;
   register: (name: string, phone: string, password: string) => Promise<{ success: boolean; message: string }>;
-  logout: () => Promise<void>;
+  logout: () => void;
   refreshUser: () => Promise<void>;
 }
 
@@ -72,15 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = async () => {
-    try {
-      api.logout();
-    } catch (error) {
-      // Continue client logout even on network error
-    } finally {
-      setUser(null);
-      router.push('/login');
-    }
+  const logout = () => {
+    api.logout();
+    setUser(null);
+    router.push('/login');
   };
 
   return (

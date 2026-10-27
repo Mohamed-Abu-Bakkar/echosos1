@@ -3,8 +3,8 @@
  * Replaces the Next httpOnly cookie session (no server in the native shell).
  */
 
-const SESSION_KEY = 'echosos_session';
-const SESSION_SECRET = 'echosos_secure_super_secret_jwt_key_2026';
+const SESSION_KEY = "echosos_session";
+const SESSION_SECRET = "echosos_secure_super_secret_jwt_key_2026";
 
 export interface StoredSession {
   userId: string;
@@ -15,14 +15,14 @@ export interface StoredSession {
 
 export async function hashPassword(password: string): Promise<string> {
   const data = new TextEncoder().encode(password + SESSION_SECRET);
-  const digest = await crypto.subtle.digest('SHA-256', data);
+  const digest = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export function getSession(): StoredSession | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
@@ -53,7 +53,7 @@ export function setSession(
 }
 
 export function clearSession(): void {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     localStorage.removeItem(SESSION_KEY);
   }
 }

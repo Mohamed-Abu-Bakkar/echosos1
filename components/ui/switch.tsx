@@ -1,28 +1,35 @@
 'use client';
 
-import * as React from 'react';
-import * as SwitchPrimitives from '@radix-ui/react-switch';
+import React, { useState } from 'react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const Switch = React.forwardRef<
-  React.ElementRef<typeof SwitchPrimitives.Root>,
-  React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>
->(({ className, ...props }, ref) => (
-  <SwitchPrimitives.Root
-    className={cn(
-      'peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3C85] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[#0B3C85] data-[state=unchecked]:bg-slate-200',
-      className
-    )}
-    {...props}
-    ref={ref}
-  >
-    <SwitchPrimitives.Thumb
-      className={cn(
-        'pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0'
-      )}
-    />
-  </SwitchPrimitives.Root>
-));
-Switch.displayName = SwitchPrimitives.Root.displayName;
+interface SwitchProps {
+  className?: string;
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
+}
+
+const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
+  ({ className, checked, onCheckedChange, ...props }, ref) => (
+    <div className={cn('relative inline-block w-6 h-3', className)}>
+      <input
+        ref={ref}
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(e) => onCheckedChange?.(e.target.checked)}
+        className="peer h-4 w-4 shrink-0 rounded border border-slate-300 text-[#0B3C85] focus:outline-none data-[state=checked]:bg-[#0B3C85] data-[state=checked]:border-[#0B3C85]"
+        {...props}
+      />
+      <span className="sr-only">{checked ? 'On' : 'Off'}</span>
+      <span className="relative inline-block w-6 h-3 rounded-full bg-slate-300 peer-checked:bg-[#0B3C85]">
+        <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm translate-x-0 peer-checked:translate-x-3 transition-all"></span>
+      </span>
+    </div>
+  )
+);
+Switch.displayName = 'Switch';
 
 export { Switch };

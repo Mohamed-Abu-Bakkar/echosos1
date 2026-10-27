@@ -1,6 +1,5 @@
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+export { Slot } from '@/components/ui/slot';
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+export function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
 }
