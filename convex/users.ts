@@ -49,6 +49,24 @@ export const createUser = mutation({
       sos_sensitivity: "HIGH",
     });
 
+    const defaultContacts = [
+      { name: "Mother", phone: "+91 98765 11111", relationship: "Mother", is_primary: true, initials: "MS" },
+      { name: "Father", phone: "+91 98765 22222", relationship: "Father", is_primary: false, initials: "FS" },
+      { name: "Police Station", phone: "112 / 100", relationship: "Emergency Services", is_primary: false, initials: "AP" },
+    ];
+
+    for (const c of defaultContacts) {
+      await ctx.db.insert("emergency_contacts", {
+        user_id: userId,
+        name: c.name,
+        phone: c.phone,
+        relationship: c.relationship,
+        is_primary: c.is_primary,
+        photo_url: "",
+        initials: c.initials,
+      });
+    }
+
     return userId;
   },
 });

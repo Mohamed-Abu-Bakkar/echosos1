@@ -7,7 +7,8 @@ export const getContacts = query({
     return await ctx.db
       .query("emergency_contacts")
       .filter((q) => q.eq(q.field("user_id"), args.userId))
-      .order("desc");
+      .order("desc")
+      .collect();
   },
 });
 
