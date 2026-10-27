@@ -75,6 +75,10 @@ export const ingestHardwareTelemetry = mutation({
     buttonPressed: v.optional(v.boolean()),
     latitude: v.optional(v.float64()),
     longitude: v.optional(v.float64()),
+    /** Event id the beacon generated for this SOS (advertised + GATT). */
+    eventId: v.optional(v.string()),
+    /** Compact beacon id from manufacturer data / local name suffix. */
+    beaconHardwareId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     let beacon = await ctx.db
@@ -90,18 +94,53 @@ export const ingestHardwareTelemetry = mutation({
     }
 
     if (beacon) {
-      const updates: Record<string, any> = { status: "CONNECTED" };
+      const updates: Record<string, string | number> = { status: "CONNECTED" };
       if (args.batteryPercent !== undefined) updates.battery_percent = args.batteryPercent;
       if (args.signalDbm !== undefined) updates.signal_dbm = args.signalDbm;
       await ctx.db.patch(beacon._id, updates);
     }
 
     let alertTriggered = false;
+    let eventId: string | null = null;
+
     if (args.buttonPressed && beacon) {
       const timestamp = new Date().toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
       });
+      // Prefer the id the beacon already put in its advertisement/GATT.
+      eventId = (args.eventId ?? generateEventId()).toLowerCase();
+      const beaconLabel = args.beaconHardwareId ?? beacon.device_name;
+
+      const existing = await ctx.db.query("active_alert").unique();
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          is_active: true,
+          beacon_id: beaconLabel,
+          event_id: eventId,
+          ble_mode: "e",
+          detected_at: timestamp,
+          latitude: args.latitude ?? existing.latitude,
+          longitude: args.longitude ?? existing.longitude,
+          contacts_dispatched: 0,
+          dispatch_url: `/track/${eventId}`,
+        });
+      } else {
+        await ctx.db.insert("active_alert", {
+          user_id: beacon.user_id,
+          beacon_id: beaconLabel,
+          event_id: eventId,
+          ble_mode: "e",
+          is_active: true,
+          detected_at: timestamp,
+          signal_dbm: `${args.signalDbm ?? -45} dBm`,
+          latitude: args.latitude ?? 10.8247,
+          longitude: args.longitude ?? 78.6956,
+          contacts_dispatched: 0,
+          dispatch_url: `/track/${eventId}`,
+        });
+      }
+
       await ctx.db.insert("alert_history", {
         user_id: beacon.user_id,
         beacon_id: undefined,
@@ -111,9 +150,23 @@ export const ingestHardwareTelemetry = mutation({
         longitude: args.longitude,
         created_at: `Today, ${timestamp}`,
       });
+
       alertTriggered = true;
     }
 
-    return { acknowledged: true, alertTriggered };
+    return { acknowledged: true, alertTriggered, eventId };
   },
 });
+
+function generateEventId(): string {
+  const bytes = new Uint8Array(4);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 4; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  if (bytes.every((b) => b === 0)) bytes[0] = 1;
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
