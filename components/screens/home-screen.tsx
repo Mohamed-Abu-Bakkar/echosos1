@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { initialEmergencyContacts } from '@/lib/mock-data';
 import { EmergencyContact } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 
@@ -30,7 +29,7 @@ interface HomeScreenProps {
 export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const [contacts, setContacts] = useState<EmergencyContact[]>(initialEmergencyContacts);
+  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [isTriggering, setIsTriggering] = useState(false);
 
   useEffect(() => {

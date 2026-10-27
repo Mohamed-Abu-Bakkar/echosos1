@@ -19,7 +19,6 @@ import {
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { initialEmergencyContacts } from '@/lib/mock-data';
 import { EmergencyContact } from '@/lib/types';
 
 interface AlertScreenProps {
@@ -30,7 +29,7 @@ interface AlertScreenProps {
 export function AlertScreen({ onNavigate, onCancelAlert }: AlertScreenProps) {
   const router = useRouter();
   const [isCancelling, setIsCancelling] = useState(false);
-  const [contacts, setContacts] = useState<EmergencyContact[]>(initialEmergencyContacts);
+  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [telemetry, setTelemetry] = useState({
     beaconId: 'ESP32-S3',
     detectedAt: '10:24 AM',

@@ -5,7 +5,8 @@ import { getSession } from '@/lib/auth';
 export async function GET() {
   try {
     const session = await getSession();
-    const userId = session?.userId || '1';
+    const userId = session?.userId;
+    if (!userId) return NextResponse.json({ success: true, beacon: null, nearbyDevices: [] });
     const beacon = await convexQuery('beacons:getBeacon', { userId });
 
     return NextResponse.json({ success: true, beacon, nearbyDevices: [] });
@@ -17,7 +18,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    const userId = session?.userId || '1';
+    const userId = session?.userId;
+    if (!userId) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     const body = await request.json();
 
     const beacon = await convexMutation('beacons:pairBeacon', {

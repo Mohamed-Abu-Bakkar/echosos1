@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@/lib/types';
-import { currentUser as mockDefaultUser } from '@/lib/mock-data';
 
 interface AuthContextType {
   user: User | null;
@@ -17,7 +16,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(mockDefaultUser);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -28,11 +27,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.authenticated && data.user) {
         setUser(data.user);
       } else {
-        // Fallback to default demo user or null
-        setUser(mockDefaultUser);
+        setUser(null);
       }
     } catch (err) {
-      setUser(mockDefaultUser);
+      setUser(null);
     } finally {
       setLoading(false);
     }

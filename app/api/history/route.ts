@@ -7,7 +7,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter') || undefined;
     const session = await getSession();
-    const userId = session?.userId || '1';
+    const userId = session?.userId;
+    if (!userId) return NextResponse.json({ success: true, count: 0, totalRecords: 0, history: [] });
     const history = await convexQuery('alerts:getAlertHistory', { userId, filter });
 
     return NextResponse.json({

@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { initialNotifications } from '@/lib/mock-data';
 import { NotificationItem, NotificationType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
@@ -26,7 +25,7 @@ interface NotificationsScreenProps {
 
 export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activeFilter, setActiveFilter] = useState<'ALL' | NotificationType>('ALL');
   const [isLoading, setIsLoading] = useState(false);
 

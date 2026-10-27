@@ -35,7 +35,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { initialEmergencyContacts } from '@/lib/mock-data';
 import { EmergencyContact } from '@/lib/types';
 
 interface ContactsScreenProps {
@@ -43,7 +42,7 @@ interface ContactsScreenProps {
 }
 
 export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
-  const [contacts, setContacts] = useState<EmergencyContact[]>(initialEmergencyContacts);
+  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);

@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { convexMutation } from '@/lib/convex-server';
+import { getSession } from '@/lib/auth';
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
+    const userId = session?.userId;
+    if (!userId) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     const { id } = await params;
     const body = await request.json();
 

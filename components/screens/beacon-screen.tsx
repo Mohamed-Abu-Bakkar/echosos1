@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Button } from '@/components/ui/button';
-import { nearbyDevices as initialDevices } from '@/lib/mock-data';
 
 interface BeaconScreenProps {
   onNavigate?: (screen: string) => void;
@@ -27,7 +26,7 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
   const [pairedDevice, setPairedDevice] = useState('ESP32-S3');
   const [macAddress, setMacAddress] = useState('C7:3A:5B:12:4E:9F');
   const [batteryPercent, setBatteryPercent] = useState(88);
-  const [devices, setDevices] = useState(initialDevices);
+  const [devices, setDevices] = useState<{ name: string; mac: string; signal: string; available: boolean }[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {

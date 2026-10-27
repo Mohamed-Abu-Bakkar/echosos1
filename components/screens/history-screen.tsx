@@ -16,7 +16,6 @@ import {
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { initialAlertHistory } from '@/lib/mock-data';
 import { AlertHistory, StatusBadge } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
@@ -27,9 +26,9 @@ interface HistoryScreenProps {
 
 export function HistoryScreen({ onNavigate }: HistoryScreenProps) {
   const { user } = useAuth();
-  const [historyList, setHistoryList] = useState<AlertHistory[]>(initialAlertHistory);
+  const [historyList, setHistoryList] = useState<AlertHistory[]>([]);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'SOS' | 'SYSTEM' | 'UPDATES'>('ALL');
-  const [totalCount, setTotalCount] = useState(32);
+  const [totalCount, setTotalCount] = useState(0);
 
   const fetchHistory = async (filter: string) => {
     try {
