@@ -18,7 +18,7 @@ import { EchoLogo } from '@/components/ui/echo-logo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { AlertHistory } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, formatTimestamp } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
 import * as api from '@/lib/api';
 
@@ -192,11 +192,11 @@ export function HistoryScreen({ onNavigate }: HistoryScreenProps) {
                       {item.event_type === 'SOS_ALERT' ? 'SOS Alert' : item.event_type}
                     </h4>
                     <span className="text-[11px] text-slate-500 font-mono block mt-0.5">
-                      {item.created_at}
+                      {formatTimestamp(item.created_at)}
                     </span>
                   </div>
                 </div>
-                <Badge>{getStatusBadge(item.event_type)}</Badge>
+                {getStatusBadge(item.event_type)}
               </div>
             ))}
           </div>
@@ -204,4 +204,8 @@ export function HistoryScreen({ onNavigate }: HistoryScreenProps) {
       </div>
     </div>
   );
+}
+
+export default function HistoryPage() {
+  return <HistoryScreen />;
 }

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Fix Capacitor Android static asset paths.
  *
@@ -17,26 +16,23 @@
  *   node scripts/fix-capacitor-paths.js
  */
 
-import { mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+const { readdirSync, readFileSync, writeFileSync, existsSync } = require("node:fs");
+const { join } = require("node:path");
 
 const OUT_DIR = join(process.cwd(), "out");
 
-function rewriteHtml(filePath: string) {
+function rewriteHtml(filePath) {
   let html = readFileSync(filePath, "utf8");
   let changed = false;
 
-  // Rewrite stylesheet hrefs from absolute to relative
   const beforeHref = html;
   html = html.replace(/href="\/_next\//g, 'href="./_next/');
   if (html !== beforeHref) changed = true;
 
-  // Rewrite script srcs from absolute to relative
   const beforeSrc = html;
   html = html.replace(/src="\/_next\//g, 'src="./_next/');
   if (html !== beforeSrc) changed = true;
 
-  // Add <base href="./"> if not present (must be right after <head>)
   if (!html.includes('<base href="./">')) {
     html = html.replace("<head>", '<head><base href="./">');
     changed = true;
@@ -48,7 +44,7 @@ function rewriteHtml(filePath: string) {
   }
 }
 
-function walk(dir: string) {
+function walk(dir) {
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const full = join(dir, entry.name);

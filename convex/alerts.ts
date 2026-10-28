@@ -74,10 +74,7 @@ export const triggerAlert = mutation({
     await requireUser(ctx, args.userId);
     const latitude = args.latitude ?? 0;
     const longitude = args.longitude ?? 0;
-    const timestamp = new Date().toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const timestamp = new Date().toISOString();
     const eventId = (args.eventId ?? generateEventId()).toLowerCase();
 
     const beacon = await ctx.db
@@ -122,7 +119,7 @@ export const triggerAlert = mutation({
       status_badge: "Alert Sent",
       latitude: args.latitude,
       longitude: args.longitude,
-      created_at: `Today, ${timestamp}`,
+      created_at: timestamp,
     });
 
     const contactCount = await ctx.db
@@ -136,7 +133,7 @@ export const triggerAlert = mutation({
       title: "Emergency Distress Broadcasted",
       message: `SOS coordinates (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) transmitted to ${contactCount.length} emergency contacts and police dispatch. Event ${eventId}. Live tracking link: /track?id=${eventId}`,
       is_read: false,
-      created_at: `Today, ${timestamp}`,
+      created_at: timestamp,
     });
 
     return { historyId, eventId, beaconId };
@@ -179,7 +176,7 @@ export const cancelAlert = mutation({
       status_badge: "Warning",
       latitude: existing.latitude,
       longitude: existing.longitude,
-      created_at: "Just now",
+      created_at: new Date().toISOString(),
     });
 
     const verifyNote = args.bleVerified
@@ -192,7 +189,7 @@ export const cancelAlert = mutation({
       title: "SOS Alert Cancelled by User",
       message: `False alert notice dispatched to emergency contacts for event ${existing.event_id}. Emergency routing standby resumed. ${verifyNote}`,
       is_read: false,
-      created_at: "Just now",
+      created_at: new Date().toISOString(),
     });
 
     return {
@@ -211,7 +208,7 @@ export const getAlertHistory = query({
       .query("alert_history")
       .withIndex("user_id", (q) => q.eq("user_id", args.userId))
       .order("desc")
-      .collect();
+      .take(500);
 
     if (!args.filter || args.filter === "ALL") return rows;
     if (args.filter === "SOS") {

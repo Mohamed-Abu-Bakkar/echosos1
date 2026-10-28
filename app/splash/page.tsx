@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import * as api from '@/lib/api';
 
 export default function SplashScreen() {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,15 +37,15 @@ export default function SplashScreen() {
       .then((data) => {
         if (data.authenticated && data.user) {
           setIsLoading(false);
-          setTimeout(() => window.location.href = '/', 1500);
+          setTimeout(() => router.push('/'), 1500);
         } else {
           setIsLoading(false);
-          setTimeout(() => window.location.href = '/login', 1500);
+          setTimeout(() => router.push('/login'), 1500);
         }
       })
       .catch(() => {
         setIsLoading(false);
-        setTimeout(() => window.location.href = '/login', 1500);
+        setTimeout(() => router.push('/login'), 1500);
       });
 
     return () => clearInterval(timer);
@@ -79,12 +81,12 @@ export default function SplashScreen() {
 
       <div className="flex flex-col items-center justify-center py-8 px-6">
         <div className="w-full max-w-md space-y-4">
-          {steps.map((step, idx) => (
+          {steps.map((s, idx) => (
             <div key={idx} className="flex items-center space-x-3">
-              <div className={`p-2 rounded-xl ${String(step) === idx.toString() ? 'bg-blue-50 text-blue-600' : 'bg-white text-slate-400 shadow-sm'}`}>
-                {step.icon}
+              <div className={`p-2 rounded-xl ${step === idx ? 'bg-blue-50 text-blue-600' : 'bg-white text-slate-400 shadow-sm'}`}>
+                {s.icon}
               </div>
-              <span className="text-xs font-medium text-slate-600">{step.label}</span>
+              <span className="text-xs font-medium text-slate-600">{s.label}</span>
             </div>
           ))}
         </div>

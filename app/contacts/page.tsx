@@ -46,6 +46,7 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
@@ -85,6 +86,7 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
     setNewPhone('');
     setNewRelationship('Mother');
     setIsPrimary(false);
+    setSaveError(null);
     setIsSheetOpen(true);
   };
 
@@ -94,6 +96,7 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
     setNewPhone(contact.phone);
     setNewRelationship(contact.relationship);
     setIsPrimary(contact.is_primary);
+    setSaveError(null);
     setIsSheetOpen(true);
   };
 
@@ -101,32 +104,33 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
     e.preventDefault();
     if (!newName || !newPhone) return;
     setIsSaving(true);
+    setSaveError(null);
 
     try {
-      if (editingId) {
-        const data = await api.updateContact(String(editingId), {
-          name: newName,
-          phone: newPhone,
-          relationship: newRelationship,
-          is_primary: isPrimary,
-        });
-        if (data.success) {
-          await fetchContacts();
-        }
-      } else {
-        const data = await api.createContact({
-          name: newName,
-          phone: newPhone,
-          relationship: newRelationship,
-          is_primary: isPrimary,
-        });
-        if (data.success) {
-          await fetchContacts();
-        }
+      const data = editingId
+        ? await api.updateContact(String(editingId), {
+            name: newName,
+            phone: newPhone,
+            relationship: newRelationship,
+            is_primary: isPrimary,
+          })
+        : await api.createContact({
+            name: newName,
+            phone: newPhone,
+            relationship: newRelationship,
+            is_primary: isPrimary,
+          });
+
+      if (!data.success) {
+        setSaveError(data.message || 'Could not save the contact. Try again.');
+        return;
       }
+
+      await fetchContacts();
       setIsSheetOpen(false);
     } catch (err) {
       console.error('Save contact error:', err);
+      setSaveError('Could not save the contact. Check your connection and try again.');
     } finally {
       setIsSaving(false);
     }
@@ -331,6 +335,11 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
               </div>
             </div>
 
+            {saveError && (
+              <p className="text-[11px] text-center text-red-600 leading-tight font-semibold">
+                {saveError}
+              </p>
+            )}
             <Button type="submit" className="w-full" disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save Contact'}
             </Button>
@@ -339,4 +348,8 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
       </Sheet>
     </div>
   );
+}
+
+export default function ContactsPage() {
+  return <ContactsScreen />;
 }

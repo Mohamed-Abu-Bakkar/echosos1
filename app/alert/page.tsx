@@ -15,9 +15,11 @@ import {
 } from 'lucide-react';
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Button } from '@/components/ui/button';
+import { formatTime } from '@/lib/utils';
 import * as api from '@/lib/api';
 
 export default function AlertScreen() {
+  const router = useRouter();
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [telemetry, setTelemetry] = useState({
@@ -68,7 +70,7 @@ export default function AlertScreen() {
       } finally {
         setIsCancelling(false);
       }
-      window.location.href = '/';
+      router.push('/');
     }
   };
 
@@ -127,7 +129,7 @@ export default function AlertScreen() {
               Detected
             </span>
             <span className="text-[11px] font-black text-[#0B3C85] block mt-1">
-              {telemetry.detectedAt || '—'}
+              {formatTime(telemetry.detectedAt)}
             </span>
           </div>
           <div className="px-1.5">

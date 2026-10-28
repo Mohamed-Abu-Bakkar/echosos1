@@ -18,7 +18,7 @@ import {
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { NotificationItem, NotificationType } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, formatTimestamp } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
 import * as api from '@/lib/api';
 
@@ -151,7 +151,7 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
                       <h4 className="text-xs font-bold text-[#0F172A]">{item.title}</h4>
                       <p className="text-[11px] text-slate-500 font-medium">{item.message}</p>
                       <span className="text-[10px] text-slate-400 font-medium block mt-1">
-                        {item.created_at}
+                        {formatTimestamp(item.created_at)}
                       </span>
                     </div>
                   </div>
@@ -168,4 +168,8 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
       </div>
     </div>
   );
+}
+
+export default function NotificationsPage() {
+  return <NotificationsScreen />;
 }

@@ -346,3 +346,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
     </div>
   );
 }
+
+export default function SettingsPage() {
+  return <SettingsScreen />;
+}

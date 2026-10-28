@@ -10,7 +10,7 @@ export const getContacts = query({
       .query("emergency_contacts")
       .withIndex("user_id", (q) => q.eq("user_id", args.userId))
       .order("desc")
-      .collect();
+      .take(200);
   },
 });
 

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Eye,
@@ -15,9 +16,17 @@ import {
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import * as api from '@/lib/api';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -39,7 +48,7 @@ export default function LoginScreen() {
       const data = await api.login(phone, password);
       if (data.success && data.user) {
         setSuccessMessage(data.message || 'Login successful');
-        setTimeout(() => window.location.href = '/', 1000);
+        setTimeout(() => router.push('/'), 1000);
       } else {
         setErrorMessage(data.message || 'Login failed');
       }
@@ -59,7 +68,7 @@ export default function LoginScreen() {
       if (data.success && data.user) {
         setSuccessMessage(data.message || 'Registration successful');
         setShowRegisterDialog(false);
-        setTimeout(() => window.location.href = '/', 1000);
+        setTimeout(() => router.push('/'), 1000);
       } else {
         setRegError(data.message || 'Registration failed');
       }
@@ -150,7 +159,67 @@ export default function LoginScreen() {
               <>Sign In</>
             )}
           </Button>
-          <p className="text-[11px] text-center text-slate-500 mt-3">
+        </form>
+
+        {showRegisterDialog && (
+          <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create Account</DialogTitle>
+                <DialogDescription>Create your EchoSOS account.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Full Name
+                  </label>
+                  <Input
+                    id="reg-name"
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    placeholder="Full Name"
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Mobile Number
+                  </label>
+                  <Input
+                    id="reg-phone"
+                    value={regPhone}
+                    onChange={(e) => setRegPhone(e.target.value)}
+                    placeholder="+91 98765 00000"
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Password
+                  </label>
+                  <Input
+                    id="reg-password"
+                    type={showPassword ? "text" : "password"}
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    placeholder="Choose a strong password"
+                    className="w-full"
+                  />
+                </div>
+                {regError && (
+                  <div className="p-3 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs font-semibold">
+                    {regError}
+                  </div>
+                )}
+                <Button type="submit" className="w-full" disabled={regSubmitting}>
+                  {regSubmitting ? "Creating..." : "Create Account"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        <p className="text-[11px] text-center text-slate-500 mt-3">
             Don't have an account?{' '}
             <button
               type="button"
@@ -160,7 +229,6 @@ export default function LoginScreen() {
               Create account
             </button>
           </p>
-        </form>
 
         <div className="mt-8">
           <button

@@ -10,7 +10,7 @@ export const getNotifications = query({
       .query("notifications")
       .withIndex("user_id", (q) => q.eq("user_id", args.userId))
       .order("desc")
-      .collect();
+      .take(500);
 
     if (!args.type || args.type === "ALL") return results;
     return results.filter((n) => n.type === args.type);
@@ -24,7 +24,8 @@ export const markAllNotificationsRead = mutation({
     const notifications = await ctx.db
       .query("notifications")
       .withIndex("user_id", (q) => q.eq("user_id", args.userId))
-      .collect();
+      .order("desc")
+      .take(500);
 
     await Promise.all(
       notifications.map((n) => ctx.db.patch(n._id, { is_read: true }))

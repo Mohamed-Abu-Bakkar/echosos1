@@ -29,9 +29,10 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [isScanning, setIsScanning] = useState(false);
-  const [pairedDevice, setPairedDevice] = useState('ESP32-S3');
-  const [macAddress, setMacAddress] = useState('C7:3A:5B:12:4E:9F');
-  const [batteryPercent, setBatteryPercent] = useState(88);
+  const [pairedDevice, setPairedDevice] = useState('');
+  const [macAddress, setMacAddress] = useState('');
+  const [batteryPercent, setBatteryPercent] = useState<number | null>(null);
+  const [beaconStatus, setBeaconStatus] = useState<string | null>(null);
   const [devices, setDevices] = useState<{ name: string; mac: string; signal: string; available: boolean }[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -44,9 +45,12 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
       .getBeacon()
       .then((data) => {
         if (data.success && data.beacon) {
-          setPairedDevice(data.beacon.device_name || 'ESP32-S3');
-          setMacAddress(data.beacon.mac_address || 'C7:3A:5B:12:4E:9F');
-          setBatteryPercent(data.beacon.battery_percent || 88);
+          setPairedDevice(data.beacon.device_name || '');
+          setMacAddress(data.beacon.mac_address || '');
+          setBatteryPercent(
+            typeof data.beacon.battery_percent === 'number' ? data.beacon.battery_percent : null
+          );
+          setBeaconStatus(data.beacon.status || null);
         }
       })
       .catch(() => {});
@@ -77,6 +81,7 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
       if (data.success) {
         setPairedDevice(name);
         setMacAddress(mac);
+        setBeaconStatus('CONNECTED');
         setStatusMessage(`Successfully paired and registered ${name}!`);
       } else {
         setStatusMessage(data.message || 'Pairing failed.');
@@ -139,18 +144,37 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
               Your Beacon
             </span>
             <h3 className="text-base font-black text-[#0F172A] flex items-center gap-2">
-              <span>{pairedDevice} • BLE</span>
+              <span>{macAddress ? `${pairedDevice || 'Beacon'} • BLE` : 'No beacon paired'}</span>
             </h3>
             <p className="text-xs text-slate-500 font-medium">
-              MAC: {macAddress} • {batteryPercent}% Battery
+              {macAddress
+                ? `MAC: ${macAddress} • ${batteryPercent !== null ? `${batteryPercent}% Battery` : 'Battery unknown'}`
+                : 'Scan for your ESP32-S3 beacon below to register it'}
             </p>
           </div>
 
           <div className="flex flex-col items-end space-y-2">
-            <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-300/60 text-emerald-700 text-[11px] font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Ready to Pair</span>
-            </div>
+            {beaconStatus === 'CONNECTED' ? (
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-300/60 text-emerald-700 text-[11px] font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Connected</span>
+              </div>
+            ) : beaconStatus === 'READY_TO_PAIR' ? (
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-300/60 text-blue-700 text-[11px] font-bold">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <span>Ready to Pair</span>
+              </div>
+            ) : beaconStatus === 'DISCONNECTED' ? (
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-300/60 text-amber-700 text-[11px] font-bold">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span>Disconnected</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-300/60 text-slate-600 text-[11px] font-bold">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span>Not paired</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -259,4 +283,8 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
       </div>
     </div>
   );
+}
+
+export default function BeaconPage() {
+  return <BeaconScreen />;
 }

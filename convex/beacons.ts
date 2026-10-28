@@ -76,7 +76,7 @@ export const pairBeacon = mutation({
         beacon_id: beacon._id,
         event_type: "BEACON_CONNECTED",
         status_badge: "Connected",
-        created_at: "Just now",
+        created_at: new Date().toISOString(),
       });
 
       await ctx.db.insert("notifications", {
@@ -85,7 +85,7 @@ export const pairBeacon = mutation({
         title: `${args.deviceName} Connected`,
         message: `Device with MAC ${args.macAddress} paired successfully via BLE.`,
         is_read: false,
-        created_at: "Just now",
+        created_at: new Date().toISOString(),
       });
     }
 
@@ -142,10 +142,7 @@ export const ingestHardwareTelemetry = mutation({
       await ctx.db.patch(beacon._id, updates);
 
       if (args.buttonPressed) {
-        const timestamp = new Date().toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const timestamp = new Date().toISOString();
         const eventId = (args.eventId ?? generateEventId()).toLowerCase();
         const beaconLabel = args.beaconHardwareId ?? beacon.device_name;
         const latitude = args.latitude ?? 0;
@@ -195,7 +192,21 @@ export const ingestHardwareTelemetry = mutation({
           status_badge: "Alert Sent",
           latitude: args.latitude,
           longitude: args.longitude,
-          created_at: `Today, ${timestamp}`,
+          created_at: timestamp,
+        });
+
+        const contactCount = await ctx.db
+          .query("emergency_contacts")
+          .withIndex("user_id", (q) => q.eq("user_id", beacon.user_id))
+          .collect();
+
+        await ctx.db.insert("notifications", {
+          user_id: beacon.user_id,
+          type: "SOS",
+          title: "Emergency Distress Broadcasted",
+          message: `SOS coordinates (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) transmitted to ${contactCount.length} emergency contacts and police dispatch. Event ${eventId}. Live tracking link: /track?id=${eventId}`,
+          is_read: false,
+          created_at: timestamp,
         });
 
         result.alertTriggered = true;

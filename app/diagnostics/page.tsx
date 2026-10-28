@@ -245,3 +245,7 @@ export function DiagnosticsScreen() {
     </div>
   );
 }
+
+export default function DiagnosticsPage() {
+  return <DiagnosticsScreen />;
+}
