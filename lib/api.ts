@@ -531,42 +531,12 @@ export async function scanBeacon(): Promise<{
         });
       });
     }
-    
-    if (typeof navigator !== 'undefined' && 'bluetooth' in navigator) {
-      const device = await (navigator as any).bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: []
-      });
-      const name = device.name || '';
-      const pattern = /echo|beacon|sos|esp/i;
-      if (!pattern.test(name) && name) {
-        return {
-          success: true,
-          scannedCount: 0,
-          devices: [],
-          message: 'No EchoSOS compatible beacons found with matching pattern',
-          timestamp: new Date().toISOString(),
-        };
-      }
-      return {
-        success: true,
-        scannedCount: 1,
-        devices: [{
-          name: name || 'EchoSOS Beacon',
-          mac: device.id || 'N/A',
-          signal: 'N/A',
-          available: true
-        }],
-        message: 'EchoSOS compatible device found',
-        timestamp: new Date().toISOString(),
-      };
-    }
   } catch (err: any) {
     return {
       success: false,
       scannedCount: 0,
       devices: [],
-      message: err?.message || 'Web Bluetooth scanning failed or not supported',
+      message: err?.message || 'BLE scan failed',
       timestamp: new Date().toISOString(),
     };
   }
@@ -574,7 +544,7 @@ export async function scanBeacon(): Promise<{
     success: false,
     scannedCount: 0,
     devices: [],
-    message: 'Web Bluetooth not supported in this browser',
+    message: 'BLE scanning only available on mobile app',
     timestamp: new Date().toISOString(),
   };
 }

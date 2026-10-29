@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { AppShell } from "@/components/app-shell";
-import { PWABLEProvider } from "@/components/pwa-ble-provider";
+import { BLEProvider } from "@/components/ble-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -40,9 +40,9 @@ export default function RootLayout({
     <html lang="en" className={inter.className}>
       <body className="antialiased min-h-screen bg-slate-100/70">
         <AuthProvider>
-          <PWABLEProvider>
+          <BLEProvider>
             <AppShell>{children}</AppShell>
-          </PWABLEProvider>
+          </BLEProvider>
         </AuthProvider>
       </body>
     </html>

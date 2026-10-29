@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { bleCapacitorScanner } from '@/lib/ble-capacitor-scanner';
-import { bleScanner } from '@/lib/ble-background-scanner';
 import { useAuth } from '@/lib/auth-context';
 import { Capacitor } from '@capacitor/core';
 
@@ -12,31 +11,15 @@ export function BLEProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    const isNative = Capacitor.isNativePlatform();
-    
-    if (user) {
-      if (isNative) {
-        bleCapacitorScanner.requestPermissions().then(() => {
-          bleCapacitorScanner.startScanning();
-        });
-      } else {
-        bleScanner.requestPermissions().then(() => {
-          bleScanner.startScanning();
-        });
-      }
-    } else {
-      if (isNative) {
-        bleCapacitorScanner.stopScanning();
-      } else {
-        bleScanner.stopScanning();
-      }
+    if (Capacitor.isNativePlatform() && user) {
+      bleCapacitorScanner.requestPermissions().then(() => {
+        bleCapacitorScanner.startScanning();
+      });
     }
 
     return () => {
-      if (isNative) {
+      if (Capacitor.isNativePlatform()) {
         bleCapacitorScanner.stopScanning();
-      } else {
-        bleScanner.stopScanning();
       }
     };
   }, [user]);
