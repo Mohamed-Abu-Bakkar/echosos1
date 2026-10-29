@@ -4,14 +4,8 @@
  * Same response shapes as the former Next /api routes, backed by Convex.
  */
 
-import { convexQuery, convexMutation } from "./convex-client";
-import {
-  clearSession,
-  getSession,
-  hashPassword,
-  setSession,
-  StoredSession,
-} from "./session";
+import { BleClient } from '@capacitor-community/bluetooth-le';
+import { Capacitor } from '@capacitor/core';
 
 export interface ApiUser {
   id: string;
@@ -490,13 +484,60 @@ export async function scanBeacon(): Promise<{
   timestamp?: string;
 }> {
   try {
+    if (Capacitor.isNativePlatform()) {
+      await BleClient.initialize();
+      const enabled = await BleClient.isEnabled();
+      if (!enabled) {
+        await BleClient.enable();
+      }
+      await BleClient.requestLEScanPermissions();
+      
+      return new Promise((resolve) => {
+        const devices = new Map<string, any>();
+        BleClient.requestLEScan(
+          { allowDuplicates: false },
+          (result) => {
+            const name = result.device.name || result.localName || '';
+            const pattern = /echo|beacon|sos|esp/i;
+            if (pattern.test(name) || name === '') {
+              devices.set(result.device.deviceId, {
+                name: name || 'EchoSOS Beacon',
+                mac: result.device.deviceId,
+                signal: result.rssi ? `${result.rssi} dBm` : 'N/A',
+                available: true
+              });
+            }
+          }
+        ).then(() => {
+          setTimeout(async () => {
+            await BleClient.stopLEScan();
+            const deviceList = Array.from(devices.values());
+            resolve({
+              success: true,
+              scannedCount: deviceList.length,
+              devices: deviceList,
+              message: deviceList.length > 0 ? 'EchoSOS compatible device found' : 'No EchoSOS compatible beacons found',
+              timestamp: new Date().toISOString(),
+            });
+          }, 5000);
+        }).catch((err) => {
+          resolve({
+            success: false,
+            scannedCount: 0,
+            devices: [],
+            message: err?.message || 'BLE scan failed',
+            timestamp: new Date().toISOString(),
+          });
+        });
+      });
+    }
+    
     if (typeof navigator !== 'undefined' && 'bluetooth' in navigator) {
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: []
       });
       const name = device.name || '';
-      // Filter for devices with specific pattern - common patterns for beacons
       const pattern = /echo|beacon|sos|esp/i;
       if (!pattern.test(name) && name) {
         return {
