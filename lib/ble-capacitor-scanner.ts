@@ -113,8 +113,21 @@ export class CapacitorBLEScanner {
       if (!session) return;
 
       const name = result.device?.name || result.localName || result.advertisement?.localName || '';
-      const adv = resolveAdvertisement(name);
       
+      // Look for EchoSOS-e- pattern specifically
+      if (name.startsWith('EchoSOS-e-') || name.includes('EchoSOS-e')) {
+        const adv = resolveAdvertisement(name);
+        if (adv && adv.mode === 'e' && adv.eventId) {
+          if (this.lastEmergencyEvent !== adv.eventId) {
+            this.lastEmergencyEvent = adv.eventId;
+            this.handleEmergency(adv);
+          }
+        }
+        this.alertCallback?.({ mode: 'e', beaconId: adv?.beaconId || name.split('-')[2] || '', eventId: adv?.eventId || null });
+        return;
+      }
+      
+      const adv = resolveAdvertisement(name);
       if (adv) {
         if (adv.mode === 'e' && adv.eventId) {
           if (this.lastEmergencyEvent !== adv.eventId) {
