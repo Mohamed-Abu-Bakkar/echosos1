@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
-  MoreVertical,
   Plus,
-  Pencil,
+  MoreVertical,
+  Edit3,
   Trash2,
   Camera,
   Info,
@@ -16,6 +16,7 @@ import {
   User,
   ShieldAlert,
   Loader2,
+  Pencil,
 } from 'lucide-react';
 import { EchoLogo } from '@/components/ui/echo-logo';
 import { Button } from '@/components/ui/button';
@@ -257,17 +258,19 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
                   <Button
                     size="sm"
                     onClick={() => handleOpenEditSheet(contact)}
-                    className="w-full text-left"
+                    className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                    aria-label="Edit contact"
                   >
-                    Edit
+                    <Pencil className="w-4 h-4" />
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleDeleteContact(contact.id)}
-                    className="w-full text-left"
+                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors border-0"
+                    aria-label="Delete contact"
                   >
-                    Delete
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>

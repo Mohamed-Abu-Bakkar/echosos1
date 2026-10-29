@@ -24,8 +24,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import * as api from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 
 export default function LoginScreen() {
+  const { login: authLogin, register: authRegister } = useAuth();
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -45,12 +47,11 @@ export default function LoginScreen() {
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      const data = await api.login(phone, password);
-      if (data.success && data.user) {
-        setSuccessMessage(data.message || 'Login successful');
-        setTimeout(() => router.push('/'), 1000);
+      const result = await authLogin(phone, password);
+      if (result.success) {
+        setSuccessMessage(result.message || 'Login successful');
       } else {
-        setErrorMessage(data.message || 'Login failed');
+        setErrorMessage(result.message || 'Login failed');
       }
     } catch (err) {
       setErrorMessage('Network or server error during sign in');
@@ -64,13 +65,12 @@ export default function LoginScreen() {
     setRegError(null);
     setRegSubmitting(true);
     try {
-      const data = await api.register(regName, regPhone, regPassword);
-      if (data.success && data.user) {
-        setSuccessMessage(data.message || 'Registration successful');
+      const result = await authRegister(regName, regPhone, regPassword);
+      if (result.success) {
+        setSuccessMessage(result.message || 'Registration successful');
         setShowRegisterDialog(false);
-        setTimeout(() => router.push('/'), 1000);
       } else {
-        setRegError(data.message || 'Registration failed');
+        setRegError(result.message || 'Registration failed');
       }
     } catch (err) {
       setRegError('Network or server error during sign up');

@@ -10,9 +10,10 @@ export interface BadgeProps
 }
 
 const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
-  function Badge({ className, variant, size, ...props }: BadgeProps) {
+  ({ className, variant, size, ...props }, ref) => {
     return (
       <Slot
+        ref={ref}
         className={cn(
           'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
           variant === 'default' &&
