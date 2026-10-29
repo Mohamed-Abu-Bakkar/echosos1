@@ -489,83 +489,15 @@ export async function scanBeacon(): Promise<{
   message?: string;
   timestamp?: string;
 }> {
-  try {
-    const { Capacitor } = await import("@capacitor/core");
-    const platform = Capacitor.getPlatform();
-    if (platform === "ios" || platform === "android") {
-      const { BackgroundBLEScanner } = await import("./ble-background-scanner");
-      const scanner = new BackgroundBLEScanner();
-      await scanner.requestPermissions();
-      if (!(await scanner.isAvailable())) {
-        return {
-          success: false,
-          scannedCount: 0,
-          devices: [],
-          message: "Bluetooth is unavailable or disabled.",
-        };
-      }
-
-      const found = new Map<string, {
-        name: string;
-        mac: string;
-        signal: string;
-        available: boolean;
-      }>();
-
-      await new Promise<void>((resolve) => {
-        let settled = false;
-        const finish = () => {
-          if (settled) return;
-          settled = true;
-          resolve();
-        };
-        scanner
-          .startScanning((device) => {
-            found.set(device.id, {
-              name: device.name || "EchoSOS Beacon",
-              mac: device.id,
-              signal: `${device.rssi} dBm`,
-              available: true,
-            });
-          })
-          .catch(() => finish());
-        setTimeout(finish, 4000);
-      });
-      await scanner.stopScanning();
-
-      const devices = Array.from(found.values()).sort((a, b) => {
-        const aStrong = parseInt(a.signal, 10) || -999;
-        const bStrong = parseInt(b.signal, 10) || -999;
-        return bStrong - aStrong;
-      });
-
-      return {
-        success: true,
-        scannedCount: devices.length,
-        devices,
-        message:
-          devices.length === 0
-            ? "No EchoSOS beacons found. Bring the beacon close and retry."
-            : undefined,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    return {
-      success: false,
-      scannedCount: 0,
-      devices: [],
-      message: "BLE scanning requires the mobile app.",
-    };
-  } catch (err) {
-    console.error("scanBeacon failed:", err);
-    return {
-      success: false,
-      scannedCount: 0,
-      devices: [],
-      message: "BLE scan failed. Check Bluetooth permissions.",
-    };
-  }
+  // Capacitor/BLE support removed from this web build.
+  // Return empty device list; the beacon pairing UI will show "No beacon paired".
+  return {
+    success: true,
+    scannedCount: 0,
+    devices: [],
+    message: "BLE scanning requires the mobile app.",
+    timestamp: new Date().toISOString(),
+  };
 }
 
 // ---------- preferences / profile ----------
