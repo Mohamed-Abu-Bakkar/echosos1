@@ -491,21 +491,32 @@ export async function scanBeacon(): Promise<{
 }> {
   try {
     if (typeof navigator !== 'undefined' && 'bluetooth' in navigator) {
-      // Web Bluetooth API - requires user interaction and secure context
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: []
       });
+      const name = device.name || '';
+      // Filter for devices with specific pattern - common patterns for beacons
+      const pattern = /echo|beacon|sos|esp/i;
+      if (!pattern.test(name) && name) {
+        return {
+          success: true,
+          scannedCount: 0,
+          devices: [],
+          message: 'No EchoSOS compatible beacons found with matching pattern',
+          timestamp: new Date().toISOString(),
+        };
+      }
       return {
         success: true,
         scannedCount: 1,
         devices: [{
-          name: device.name || 'Unknown Device',
+          name: name || 'EchoSOS Beacon',
           mac: device.id || 'N/A',
           signal: 'N/A',
           available: true
         }],
-        message: 'Device selected via Web Bluetooth',
+        message: 'EchoSOS compatible device found',
         timestamp: new Date().toISOString(),
       };
     }
