@@ -489,13 +489,40 @@ export async function scanBeacon(): Promise<{
   message?: string;
   timestamp?: string;
 }> {
-  // Capacitor/BLE support removed from this web build.
-  // Return empty device list; the beacon pairing UI will show "No beacon paired".
+  try {
+    if (typeof navigator !== 'undefined' && 'bluetooth' in navigator) {
+      // Web Bluetooth API - requires user interaction and secure context
+      const device = await (navigator as any).bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: []
+      });
+      return {
+        success: true,
+        scannedCount: 1,
+        devices: [{
+          name: device.name || 'Unknown Device',
+          mac: device.id || 'N/A',
+          signal: 'N/A',
+          available: true
+        }],
+        message: 'Device selected via Web Bluetooth',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      scannedCount: 0,
+      devices: [],
+      message: err?.message || 'Web Bluetooth scanning failed or not supported',
+      timestamp: new Date().toISOString(),
+    };
+  }
   return {
-    success: true,
+    success: false,
     scannedCount: 0,
     devices: [],
-    message: "BLE scanning requires the mobile app.",
+    message: 'Web Bluetooth not supported in this browser',
     timestamp: new Date().toISOString(),
   };
 }
