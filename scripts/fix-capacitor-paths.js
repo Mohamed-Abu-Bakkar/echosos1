@@ -33,6 +33,29 @@ function rewriteHtml(filePath) {
   html = html.replace(/src="\/_next\//g, 'src="./_next/');
   if (html !== beforeSrc) changed = true;
 
+  // Remove async/defer from Next.js chunk script tags so scripts execute in
+  // order during HTML parsing (where document.currentScript is reliably set).
+  // With defer/async, document.currentScript is null when Turbopack's
+  // TURBOPACK.push runs, crashing e.getAttribute("src") and preventing
+  // React hydration entirely.
+  const beforeAsync = html;
+  html = html.replace(/<script([^>]*src="\.\/_next\/[^"]*"[^>]*)async=""([^>]*)>/g, '<script$1$2>');
+  html = html.replace(/<script([^>]*src="\.\/_next\/[^"]*"[^>]*)async([^>]*)>/g, '<script$1$2>');
+  html = html.replace(/<script([^>]*src="\.\/_next\/[^"]*"[^>]*)defer=""([^>]*)>/g, '<script$1$2>');
+  html = html.replace(/<script([^>]*src="\.\/_next\/[^"]*"[^>]*)defer([^>]*)>/g, '<script$1$2>');
+  if (html !== beforeAsync) changed = true;
+
+  // Inject a script at the top of <head> that defines document.currentScript
+  // as a getter returning the currently executing script element. This is
+  // needed because Chrome headless (and the Android WebView) do not set
+  // document.currentScript during script execution, which causes the
+  // Turbopack runtime to crash when it calls e.getAttribute("src") on null.
+  const currentScriptInject = '<script>(function(){try{Object.defineProperty(document,"currentScript",{configurable:!0,get:function(){const s=document.getElementsByTagName("script");for(let i=s.length-1;i>=0;i--)if(s[i].src)return s[i];return null}})})catch(e){}})();</script>';
+  if (!html.includes(currentScriptInject)) {
+    html = html.replace("<head>", "<head>" + currentScriptInject);
+    changed = true;
+  }
+
   if (!html.includes('<base href="./">')) {
     html = html.replace("<head>", '<head><base href="./">');
     changed = true;
@@ -61,5 +84,5 @@ if (!existsSync(OUT_DIR)) {
   process.exit(1);
 }
 
-walk(OUT_DIR);
-console.log("Done. All HTML files patched with relative asset paths.");
+  walk(OUT_DIR);
+  console.log("Done. All HTML files patched with relative asset paths.");
