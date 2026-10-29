@@ -254,7 +254,7 @@ export function ContactsScreen({ onNavigate }: ContactsScreenProps) {
                     )}
                   </div>
                 </div>
-                <div className="mt-2 flex flex-col">
+                <div className="mt-2 flex gap-1">
                   <Button
                     size="sm"
                     onClick={() => handleOpenEditSheet(contact)}
