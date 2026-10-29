@@ -16,6 +16,7 @@ export class CapacitorBLEScanner {
   private scanning = false;
   private alertCallback?: AlertCallback;
   private lastEmergencyEvent?: string;
+  private scanInterval: any = null;
 
   constructor(callback?: AlertCallback) {
     this.alertCallback = callback;
@@ -33,7 +34,7 @@ export class CapacitorBLEScanner {
 
   async requestPermissions(): Promise<boolean> {
     try {
-      await BleClient.requestLEScanPermissions();
+      await BleClient.initialize();
       return true;
     } catch (err) {
       console.error('Permission request failed:', err);
@@ -56,19 +57,36 @@ export class CapacitorBLEScanner {
       await this.initialize();
       const enabled = await this.isAvailable();
       if (!enabled) {
-        await BleClient.enable();
+        try {
+          await BleClient.enable();
+        } catch {}
       }
       
       this.scanning = true;
       
-      await BleClient.requestLEScan(
-        {
-          allowDuplicates: true,
-        },
-        (result) => {
-          this.handleScanResult(result);
+      // Continuous scanning with restart
+      const startScan = async () => {
+        try {
+          await BleClient.stopLEScan();
+        } catch {}
+        try {
+          await BleClient.requestLEScan(
+            {
+              allowDuplicates: true,
+            },
+            (result) => {
+              this.handleScanResult(result);
+            }
+          );
+        } catch (err) {
+          console.error('Scan error:', err);
+          setTimeout(startScan, 2000);
         }
-      );
+      };
+      
+      startScan();
+      // Restart scan every 10 seconds to keep it active
+      this.scanInterval = setInterval(startScan, 10000);
     } catch (err) {
       console.error('Start scan failed:', err);
       this.scanning = false;
@@ -78,6 +96,10 @@ export class CapacitorBLEScanner {
   async stopScanning(): Promise<void> {
     if (!this.scanning) return;
     try {
+      if (this.scanInterval) {
+        clearInterval(this.scanInterval);
+        this.scanInterval = null;
+      }
       await BleClient.stopLEScan();
       this.scanning = false;
     } catch (err) {
@@ -90,7 +112,7 @@ export class CapacitorBLEScanner {
       const session = getSession();
       if (!session) return;
 
-      const name = result.device?.name || result.localName;
+      const name = result.device?.name || result.localName || result.advertisement?.localName || '';
       const adv = resolveAdvertisement(name);
       
       if (adv) {
