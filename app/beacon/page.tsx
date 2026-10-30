@@ -213,13 +213,13 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
         className="w-full bg-[#0B3C85] hover:bg-[#082E66] text-white flex items-center justify-center gap-2 font-bold shadow-md shadow-[#0B3C85]/20"
       >
         <Radio className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
-        <span>{isScanning ? 'Scanning for Beacons...' : 'Scan for Nearby Devices'}</span>
+        <span>{isScanning ? 'Scanning for Beacons...' : 'Refresh Scan'}</span>
       </Button>
 
       <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <h3 className="text-xs font-bold text-[#0F172A] tracking-wide">
-            Nearby Devices
+            Nearby Devices (Auto-Scanning)
           </h3>
           <button
             onClick={handleScan}
