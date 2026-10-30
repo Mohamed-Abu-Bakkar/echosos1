@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import * as api from '@/lib/api';
+import { bleEventBus } from '@/lib/ble-events';
+import { Capacitor } from '@capacitor/core';
 import {
   ArrowLeft,
   RotateCw,
@@ -54,6 +56,21 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
         }
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const unsubscribe = bleEventBus.subscribe((devices) => {
+        const filtered = devices.filter((d: any) => {
+          const name = d.rawName || d.name || '';
+          return /echo|beacon|sos|esp|EchoSOS-r/i.test(name);
+        });
+        if (filtered.length > 0) {
+          setDevices(filtered);
+        }
+      });
+      return unsubscribe;
+    }
   }, []);
 
   const handleScan = async () => {

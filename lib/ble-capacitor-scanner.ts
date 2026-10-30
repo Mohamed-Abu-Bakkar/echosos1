@@ -5,6 +5,7 @@ import { BleClient } from '@capacitor-community/bluetooth-le';
 import { resolveAdvertisement, BeaconMode } from './ble-protocol';
 import * as api from './api';
 import { getSession } from './session';
+import { bleEventBus } from './ble-events';
 
 type AlertCallback = (event: {
   mode: BeaconMode;
@@ -113,6 +114,18 @@ export class CapacitorBLEScanner {
       if (!session) return;
 
       const name = result.device?.name || result.localName || result.advertisement?.localName || '';
+      
+      // Emit all discovered devices for auto-registration
+      const mac = result.device?.deviceId || result.deviceId || '';
+      if (mac) {
+        bleEventBus.emit({
+          name: name || 'EchoSOS Beacon',
+          mac: mac,
+          signal: result.rssi ? `${result.rssi} dBm` : 'N/A',
+          available: true,
+          rawName: name
+        });
+      }
       
       // Look for EchoSOS-e- pattern specifically
       if (name.startsWith('EchoSOS-e-') || name.includes('EchoSOS-e')) {
