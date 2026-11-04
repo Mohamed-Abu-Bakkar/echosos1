@@ -63,7 +63,7 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
       const unsubscribe = bleEventBus.subscribe((devices) => {
         const filtered = devices.filter((d: any) => {
           const name = d.rawName || d.name || '';
-          return /^EchoSOS-[rec]-[0-9a-f]{8}$/i.test(name);
+          return name.toLowerCase().startsWith('echosos-');
         });
         // Always replace the list, including with [], so stale generic entries disappear.
         setDevices(filtered);
@@ -79,10 +79,10 @@ export function BeaconScreen({ onNavigate }: BeaconScreenProps) {
       const data = await api.scanBeacon();
       if (data.success && data.devices) {
         const validDevices = data.devices.filter((device) =>
-          /^EchoSOS-[rec]-[0-9a-f]{8}$/i.test(device.name)
+          device.name.toLowerCase().startsWith('echosos-')
         );
         setDevices(validDevices);
-        setStatusMessage(`Scan complete: Found ${validDevices.length} valid EchoSOS beacons.`);
+        setStatusMessage(`Scan complete: Found ${validDevices.length} EchoSOS devices.`);
       } else {
         setStatusMessage(data.message || 'Bluetooth unavailable — no nearby devices found.');
       }
