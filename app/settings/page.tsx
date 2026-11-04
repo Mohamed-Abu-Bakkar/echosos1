@@ -112,7 +112,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
 
   const userInitials = user?.name
     ? user.name
-        .split('')
+        .split(/\s+/)
         .map((n) => n[0])
         .join('')
         .substring(0, 2)
