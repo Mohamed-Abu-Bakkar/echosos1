@@ -2,7 +2,7 @@
  * Foreground BLE scanner using the Capacitor Bluetooth LE plugin.
  */
 import { BleClient } from '@capacitor-community/bluetooth-le';
-import { resolveAdvertisement, BeaconMode } from './ble-protocol';
+import { resolveAdvertisement, buildBeaconLocalName, BeaconMode } from './ble-protocol';
 import * as api from './api';
 import { getSession } from './session';
 import { bleEventBus } from './ble-events';
@@ -116,28 +116,30 @@ export class CapacitorBLEScanner {
       const session = getSession();
       if (!session) return;
 
-      const name = result.device?.name || result.localName || result.advertisement?.localName || '';
-      
-      // Emit all discovered devices for auto-registration
-      const mac = result.device?.deviceId || result.deviceId || '';
-      if (mac) {
-        bleEventBus.emit({
-          name: name || 'EchoSOS Beacon',
-          mac: mac,
-          signal: result.rssi ? `${result.rssi} dBm` : 'N/A',
-          available: true,
-          rawName: name
-        });
-      }
-      
-      // ESP32 eventId is carried in manufacturer data, not just its local name.
+      const advertisedName =
+        result.device?.name || result.localName || result.advertisement?.localName || '';
+
+      // Accept only valid EchoSOS advertisements. The displayed name is
+      // normalized to the documented EchoSOS-r/e/c-<8 hex ID> pattern.
       const rawManufacturer = result.manufacturerData || result.advertisement?.manufacturerData || {};
       const manufacturerData = Object.entries(rawManufacturer).map(([vendorId, data]) => ({
         vendorId: Number(vendorId),
         data: data as DataView | ArrayBuffer | Uint8Array,
       })).filter((entry) => Number.isFinite(entry.vendorId));
-      const adv = resolveAdvertisement(name, manufacturerData);
+      const adv = resolveAdvertisement(advertisedName, manufacturerData);
       if (!adv) return;
+
+      const displayName = buildBeaconLocalName(adv.mode, adv.beaconId);
+      const mac = result.device?.deviceId || result.deviceId || '';
+      if (mac) {
+        bleEventBus.emit({
+          name: displayName,
+          mac,
+          signal: typeof result.rssi === 'number' ? `${result.rssi} dBm` : 'N/A',
+          available: true,
+          rawName: displayName,
+        });
+      }
 
       this.alertCallback?.({ mode: adv.mode, beaconId: adv.beaconId, eventId: adv.eventId });
       if (adv.mode === 'e') {
