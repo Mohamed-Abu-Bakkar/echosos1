@@ -12,7 +12,7 @@ function getConvexUrl(): string {
 }
 
 async function convexRequest(
-  endpoint: "query" | "mutation" | "action",
+  endpoint: "query" | "mutation",
   functionPath: string,
   args: Record<string, unknown>
 ): Promise<any> {
@@ -51,9 +51,7 @@ export async function convexMutation(
   return convexRequest("mutation", functionPath, args);
 }
 
-export async function convexAction(functionPath: string, args: Record<string, unknown> = {}): Promise<any> {
-  return convexRequest("action", functionPath, args);
-}
+
 
 /** Convex docs use `_id`; UI layers key on `id`. */
 export function mapDoc<T extends { _id: string }>(doc: T | null | undefined): any {
