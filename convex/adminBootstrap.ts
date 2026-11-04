@@ -3,15 +3,14 @@ import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { authComponent, createAuthOptions } from "./auth";
+import { createAuthOptions } from "./auth";
 import authConfig from "./auth.config";
 
 /**
- * One-time, internal-only bootstrap for the single EchoSOS administrator.
+ * Temporary, token-protected administrator bootstrap.
  *
- * The action deliberately enables email signup only in this isolated runtime
- * instance and assigns the admin role by default. It is not exposed to clients.
- * Remove the bootstrap environment variables immediately after it succeeds.
+ * Remove this file and unset both bootstrap environment variables immediately
+ * after the administrator has been created and verified.
  */
 export const bootstrapAdmin = action({
   args: {
@@ -32,12 +31,10 @@ export const bootstrapAdmin = action({
     ) {
       throw new Error("Invalid bootstrap token");
     }
+
     const password = process.env.ADMIN_BOOTSTRAP_PASSWORD;
     const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 
-    if (!token || token.length < 32) {
-      throw new Error("ADMIN_BOOTSTRAP_TOKEN is missing or too short");
-    }
     if (!password || password.length < 12) {
       throw new Error("ADMIN_BOOTSTRAP_PASSWORD must be at least 12 characters");
     }
@@ -45,18 +42,8 @@ export const bootstrapAdmin = action({
       throw new Error("ADMIN_EMAIL must be admin@echosos.com for this bootstrap");
     }
 
-    const adapter = authComponent.adapter(ctx);
-    const existing = await adapter.findOne({
-      model: "user",
-      where: [{ field: "email", value: email }],
-    });
-
-    if (existing) {
-      throw new Error(
-        "A Better Auth user already exists for the configured admin email; refusing to overwrite it",
-      );
-    }
-
+    // The Better Auth admin plugin assigns the configured default role.
+    // Public signup remains disabled in the normal auth configuration.
     const auth = betterAuth({
       ...createAuthOptions(ctx),
       emailAndPassword: {
@@ -72,6 +59,7 @@ export const bootstrapAdmin = action({
       ],
     });
 
+    // Better Auth rejects an existing email; no existing account is overwritten.
     const result = await auth.api.signUpEmail({
       body: {
         email,
