@@ -1,7 +1,7 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
-import { phoneNumber } from "better-auth/plugins/phone-number";
+import { phoneNumber } from "better-auth/plugins";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
@@ -19,6 +19,7 @@ import authConfig from "./auth.config";
  */
 const isDemoOtpEnabled =
   process.env.ECHOSOS_DEMO_OTP_ENABLED === "true" &&
+  process.env.ECHOSOS_ENV === "development" &&
   process.env.NODE_ENV !== "production";
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
