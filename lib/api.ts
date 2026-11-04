@@ -6,7 +6,7 @@
 
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { Capacitor } from '@capacitor/core';
-import { convexQuery, convexMutation, convexAction, mapDoc, mapDocs } from "./convex-client";
+import { convexQuery, convexMutation, mapDoc, mapDocs } from "./convex-client";
 import { getSession, setSession, clearSession, hashPassword, type StoredSession } from "./session";
 import { sendSmsThroughDevice } from "./native-sms";
 
