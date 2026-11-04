@@ -144,6 +144,10 @@ export async function register(
 
 export function logout(): void {
   clearSession();
+  // Stop native monitoring only when the authenticated session is explicitly ended.
+  void import('@/lib/background-monitor')
+    .then(({ stopBackgroundMonitoring }) => stopBackgroundMonitoring())
+    .catch((error) => console.error('Could not stop EchoSOS monitoring on logout:', error));
 }
 
 // ---------- alerts ----------
@@ -571,6 +575,10 @@ export async function updatePreferences(body: {
   language?: string;
   notificationsEnabled?: boolean;
   sosSensitivity?: string;
+  backgroundNotificationShowBluetoothStatus?: boolean;
+  backgroundNotificationShowBeaconStatus?: boolean;
+  backgroundNotificationShowLastDetection?: boolean;
+  backgroundNotificationShowLastSosEvent?: boolean;
 }): Promise<{ success: boolean; message?: string }> {
   const userId = requireUserId();
   if (!userId) return { success: false, message: "Unauthorized" };
@@ -581,6 +589,10 @@ export async function updatePreferences(body: {
       language: body.language,
       notificationsEnabled: body.notificationsEnabled,
       sosSensitivity: body.sosSensitivity,
+      backgroundNotificationShowBluetoothStatus: body.backgroundNotificationShowBluetoothStatus,
+      backgroundNotificationShowBeaconStatus: body.backgroundNotificationShowBeaconStatus,
+      backgroundNotificationShowLastDetection: body.backgroundNotificationShowLastDetection,
+      backgroundNotificationShowLastSosEvent: body.backgroundNotificationShowLastSosEvent,
     });
     return { success: true, message: "Preferences updated" };
   } catch {
