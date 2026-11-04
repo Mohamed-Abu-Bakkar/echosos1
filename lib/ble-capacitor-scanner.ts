@@ -173,7 +173,7 @@ export class CapacitorBLEScanner {
         } catch {}
       }
 
-      await api.triggerAlert({
+      const result = await api.triggerAlert({
         latitude,
         longitude,
         beaconId: adv.beaconId,
