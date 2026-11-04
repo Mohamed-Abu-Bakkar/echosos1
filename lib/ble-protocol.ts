@@ -42,11 +42,11 @@ export const MODE_PREFIX: Record<BeaconMode, string> = {
 export const ECHOSOS_COMPANY_ID = 0xe505;
 
 /** EchoSOS GATT service (short UUID 0xE505). */
-export const ECHOSOS_SERVICE_UUID = '0000e505-0000-1000-8000-00805f9b34fb';
+export const ECHOSOS_SERVICE_UUID = '7a0247e7-8e88-409b-a959-ab5092ddb03e';
 
 /** Readable Event State characteristic — primary source of truth for cancel. */
 export const ECHOSOS_EVENT_STATE_CHAR_UUID =
-  '0000e506-0000-1000-8000-00805f9b34fb';
+  '82258baa-df72-47e8-99bc-b73d7ecd08a5';
 
 export const EVENT_STATE_LENGTH = 12;
 export const MANUFACTURER_PAYLOAD_LENGTH = 11;
