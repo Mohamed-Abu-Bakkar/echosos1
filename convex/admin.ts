@@ -7,6 +7,10 @@ import { v } from "convex/values";
  * Never accept a user id or role from the browser as proof of authorization.
  */
 async function requireAdmin(ctx: { auth: { getUserIdentity: () => Promise<{ email?: string } | null> } }) {
+  // Explicit opt-in for the isolated development deployment only.
+  // Never set ADMIN_DEV_BYPASS on production deployments.
+  if (process.env.ADMIN_DEV_BYPASS === "true") return "development-admin";
+
   const identity = await ctx.auth.getUserIdentity();
   const configuredEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const identityEmail = identity?.email?.trim().toLowerCase();
