@@ -1,12 +1,14 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { authComponent } from "./auth";
+import type { GenericCtx } from "@convex-dev/better-auth";
+import type { DataModel } from "./_generated/dataModel";
 
 /**
  * Read-only administration API consumed by the separate echoSOS-admin app.
  * Every query checks the signed-in Better Auth identity against ADMIN_EMAIL.
  */
-async function requireAdmin(ctx: any) {
+async function requireAdmin(ctx: GenericCtx<DataModel>) {
   const user = await authComponent.getAuthUser(ctx);
   const configuredEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const signedInEmail =
