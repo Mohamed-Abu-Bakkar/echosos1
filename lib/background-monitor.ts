@@ -1,4 +1,4 @@
-import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 
 export interface BackgroundNotificationOptions {
   showBluetoothStatus: boolean;
@@ -9,27 +9,38 @@ export interface BackgroundNotificationOptions {
 
 interface MonitorPermissions {
   bluetoothGranted: boolean;
+  locationGranted: boolean;
   notificationsGranted: boolean;
 }
 
-interface NativeBeaconEvent {
+export interface NativeBeaconEvent {
   name?: string;
   mac?: string;
   beaconId?: string;
   eventId?: string;
   mode?: string;
   rssi?: number;
+  available?: boolean;
+}
+
+export interface NativeSosReportedEvent {
+  beaconId?: string;
+  eventId?: string;
 }
 
 interface EchoSOSMonitorPlugin {
   requestMonitorPermissions(): Promise<MonitorPermissions>;
-  startMonitoring(options: { convexUrl: string }): Promise<{ started: boolean }>;
+  startMonitoring(options: { convexSiteUrl: string }): Promise<{ started: boolean }>;
   getNotificationOptions(): Promise<BackgroundNotificationOptions>;
   updateNotificationOptions(options: Partial<BackgroundNotificationOptions>): Promise<void>;
   stopMonitoring(): Promise<void>;
   addListener(
-    eventName: 'beaconDetected',
+    eventName: "beaconDetected",
     listener: (event: NativeBeaconEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "sosReported",
+    listener: (event: NativeSosReportedEvent) => void,
   ): Promise<PluginListenerHandle>;
 }
 
@@ -40,35 +51,44 @@ export const DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS: BackgroundNotificationOpti
   showLastSosEvent: true,
 };
 
-const NativeMonitor = registerPlugin<EchoSOSMonitorPlugin>('EchoSOSMonitor');
+const NativeMonitor = registerPlugin<EchoSOSMonitorPlugin>("EchoSOSMonitor");
+
+function getConvexSiteUrl(): string {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is missing from this native build.");
+
+  const normalized = url.trim().replace(/\/+$/, "");
+  return normalized.replace(/\.convex\.cloud$/i, ".convex.site");
+}
 
 export function isNativeBackgroundMonitorAvailable(): boolean {
-  return Capacitor.getPlatform() === 'android';
+  return Capacitor.getPlatform() === "android";
 }
 
 export async function startBackgroundMonitoring(): Promise<void> {
-  if (Capacitor.getPlatform() !== 'android') return;
+  if (!isNativeBackgroundMonitorAvailable()) return;
 
   const permissions = await NativeMonitor.requestMonitorPermissions();
   if (!permissions.bluetoothGranted) {
-    throw new Error('Bluetooth permission is required for background beacon monitoring.');
+    throw new Error("Bluetooth permission is required for background beacon monitoring.");
   }
 
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) {
-    throw new Error('NEXT_PUBLIC_CONVEX_URL is missing from this native build.');
-  }
-
-  await NativeMonitor.startMonitoring({ convexUrl });
+  await NativeMonitor.startMonitoring({ convexSiteUrl: getConvexSiteUrl() });
   if (!permissions.notificationsGranted) {
-    console.warn('EchoSOS notification permission is denied; Android may not show the ongoing notification in the notification shade.');
+    console.warn("Android may show the foreground service only in Task Manager when notification permission is denied.");
+  }
+  if (!permissions.locationGranted) {
+    console.warn("Location permission was not granted; background SOS reports may not include coordinates.");
   }
 }
 
 export async function getBackgroundNotificationOptions(): Promise<BackgroundNotificationOptions> {
-  if (Capacitor.getPlatform() !== 'android') return DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS;
+  if (!isNativeBackgroundMonitorAvailable()) return DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS;
   try {
-    return { ...DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS, ...(await NativeMonitor.getNotificationOptions()) };
+    return {
+      ...DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS,
+      ...(await NativeMonitor.getNotificationOptions()),
+    };
   } catch {
     return DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS;
   }
@@ -77,20 +97,25 @@ export async function getBackgroundNotificationOptions(): Promise<BackgroundNoti
 export async function updateBackgroundNotificationOptions(
   options: Partial<BackgroundNotificationOptions>,
 ): Promise<void> {
-  if (Capacitor.getPlatform() !== 'android') return;
+  if (!isNativeBackgroundMonitorAvailable()) return;
   await NativeMonitor.updateNotificationOptions(options);
 }
 
 export async function stopBackgroundMonitoring(): Promise<void> {
-  if (Capacitor.getPlatform() !== 'android') return;
+  if (!isNativeBackgroundMonitorAvailable()) return;
   await NativeMonitor.stopMonitoring();
 }
 
 export async function addBackgroundBeaconListener(
   listener: (event: NativeBeaconEvent) => void,
 ): Promise<PluginListenerHandle | null> {
-  if (Capacitor.getPlatform() !== 'android') return null;
-  return NativeMonitor.addListener('beaconDetected', listener);
+  if (!isNativeBackgroundMonitorAvailable()) return null;
+  return NativeMonitor.addListener("beaconDetected", listener);
 }
 
-export type { NativeBeaconEvent };
+export async function addBackgroundSosReportedListener(
+  listener: (event: NativeSosReportedEvent) => void,
+): Promise<PluginListenerHandle | null> {
+  if (!isNativeBackgroundMonitorAvailable()) return null;
+  return NativeMonitor.addListener("sosReported", listener);
+}
