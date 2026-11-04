@@ -2,7 +2,7 @@ import { admin } from "better-auth/plugins";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
+import { action } from "./_generated/server";
 import { authComponent, createAuthOptions } from "./auth";
 import authConfig from "./auth.config";
 
@@ -22,8 +22,16 @@ export const bootstrapAdmin = action({
     email: v.string(),
     role: v.string(),
   }),
-  handler: async (ctx) => {
-    const token = process.env.ADMIN_BOOTSTRAP_TOKEN;
+  handler: async (ctx, args) => {
+    const expectedToken = process.env.ADMIN_BOOTSTRAP_TOKEN;
+
+    if (
+      !expectedToken ||
+      expectedToken.length < 32 ||
+      args.token !== expectedToken
+    ) {
+      throw new Error("Invalid bootstrap token");
+    }
     const password = process.env.ADMIN_BOOTSTRAP_PASSWORD;
     const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 
