@@ -1,7 +1,6 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
-import { admin } from "better-auth/plugins";
 import type { BetterAuthOptions } from "better-auth";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
@@ -27,7 +26,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
       enabled: true,
       disableSignUp: true,
     },
-    plugins: [convex({ authConfig }), admin()],
+    plugins: [convex({ authConfig })],
   }) satisfies BetterAuthOptions;
 
 // Exposed for the Better Auth CLI's one-time administrator bootstrap.
