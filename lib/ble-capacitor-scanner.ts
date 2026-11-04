@@ -1,5 +1,5 @@
 /**
- * BLE scanner using Capacitor Bluetooth LE plugin for native background support
+ * Foreground BLE scanner using the Capacitor Bluetooth LE plugin.
  */
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { resolveAdvertisement, BeaconMode } from './ble-protocol';
