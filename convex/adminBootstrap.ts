@@ -13,8 +13,10 @@ import authConfig from "./auth.config";
  * instance and assigns the admin role by default. It is not exposed to clients.
  * Remove the bootstrap environment variables immediately after it succeeds.
  */
-export const bootstrapAdmin = internalAction({
-  args: {},
+export const bootstrapAdmin = action({
+  args: {
+    token: v.string(),
+  },
   returns: v.object({
     created: v.boolean(),
     email: v.string(),

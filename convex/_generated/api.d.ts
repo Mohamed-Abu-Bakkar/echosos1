@@ -8,7 +8,10 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
+import type * as adminBootstrap from "../adminBootstrap.js";
 import type * as alerts from "../alerts.js";
+import type * as auth from "../auth.js";
 import type * as beacons from "../beacons.js";
 import type * as contacts from "../contacts.js";
 import type * as http from "../http.js";
@@ -24,7 +27,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
+  adminBootstrap: typeof adminBootstrap;
   alerts: typeof alerts;
+  auth: typeof auth;
   beacons: typeof beacons;
   contacts: typeof contacts;
   http: typeof http;
@@ -60,4 +66,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
+};
