@@ -8,6 +8,7 @@ import { BleClient } from '@capacitor-community/bluetooth-le';
 import { Capacitor } from '@capacitor/core';
 import { convexQuery, convexMutation, convexAction, mapDoc, mapDocs } from "./convex-client";
 import { getSession, setSession, clearSession, hashPassword, type StoredSession } from "./session";
+import { sendSmsThroughDevice } from "./native-sms";
 
 export interface ApiUser {
   id: string;
@@ -173,12 +174,7 @@ export async function getAlertByEventId(eventId: string): Promise<{
   }
 }
 
-export async function triggerAlert(body: {
-  latitude?: number;
-  longitude?: number;
-  beaconId?: string;
-  eventId?: string;
-}): Promise<{
+export async function triggerAlert(body: { latitude?: number; longitude?: number; beaconId?: string; eventId?: string }): Promise<{
   success: boolean;
   message?: string;
   sms?: { configured: boolean; queued: number; failed: number; total?: number; message: string };
@@ -188,18 +184,51 @@ export async function triggerAlert(body: {
   if (!userId) return { success: false, message: "Unauthorized" };
   try {
     const result = await convexMutation("alerts.js:triggerAlert", {
-      userId, latitude: body.latitude, longitude: body.longitude,
-      beaconId: body.beaconId, eventId: body.eventId,
+      userId, latitude: body.latitude, longitude: body.longitude, beaconId: body.beaconId, eventId: body.eventId,
     });
-    let sms = { configured: false, queued: 0, failed: 0, message: "SMS was not attempted." };
-    try {
-      sms = await convexAction("alerts.js:sendEmergencySms", {
-        userId, eventId: result.eventId, latitude: body.latitude, longitude: body.longitude,
-      });
-    } catch (error) {
-      console.error("SOS saved, but SMS action failed:", error);
-      sms.message = "SOS was saved, but SMS sending could not be completed.";
+    const contactResult = await getContacts();
+    const contacts = contactResult.success ? contactResult.contacts.slice(0, 5) : [];
+    let queued = 0;
+    let failed = 0;
+    const location = typeof body.latitude === "number" && typeof body.longitude === "number"
+      ? "https://maps.google.com/?q=" + body.latitude + "," + body.longitude
+      : "Phone GPS location is unavailable. Please call the user immediately.";
+    const message = [
+      "ECHOSOS EMERGENCY ALERT",
+      "An SOS beacon has been activated. Please contact the user and arrange help.",
+      "Location: " + location,
+      "Incident ID: " + result.eventId,
+    ].join(String.fromCharCode(10));
+    let smsMessage = "No emergency contacts are saved; no SMS was sent.";
+    if (contacts.length > 0) {
+      if (typeof window === "undefined") {
+        failed = contacts.length;
+        smsMessage = "SOS recorded, but SIM SMS can only be sent from the installed Android app.";
+      } else {
+        for (const contact of contacts) {
+          let status = "SMS Failed";
+          let detail = "Android did not accept the SMS request.";
+          try {
+            await sendSmsThroughDevice(contact.phone, message);
+            queued += 1;
+            status = "SMS Submitted";
+            detail = "SMS submitted to the Android device SIM. Carrier/handset delivery is not confirmed.";
+          } catch (smsError) {
+            failed += 1;
+            detail = smsError instanceof Error ? smsError.message : "SMS submission failed";
+          }
+          try {
+            await convexMutation("alerts.js:recordSmsDelivery", {
+              userId, eventId: result.eventId, contactName: contact.name, contactPhone: contact.phone, status, detail,
+            });
+          } catch (recordError) {
+            console.error("Could not save SMS status to Convex:", recordError);
+          }
+        }
+        smsMessage = queued + " SMS message(s) submitted to the phone SIM; " + failed + " failed. Carrier delivery is not confirmed.";
+      }
     }
+    const sms = { configured: typeof window !== "undefined", queued, failed, total: contacts.length, message: smsMessage };
     return {
       success: true, message: sms.message, sms,
       alert: { id: result.historyId, eventId: result.eventId, beaconId: result.beaconId },
