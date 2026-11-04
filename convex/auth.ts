@@ -13,7 +13,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth);
 export const createAuth = (ctx: GenericCtx<DataModel>) =>
   betterAuth({
     appName: "EchoSOS",
-    baseURL: process.env.CONVEX_SITE_URL,
+    baseURL: siteUrl,
     secret: process.env.BETTER_AUTH_SECRET,
     trustedOrigins: [siteUrl],
     database: authComponent.adapter(ctx),
