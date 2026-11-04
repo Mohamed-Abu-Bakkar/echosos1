@@ -9,7 +9,6 @@ import {
   Radio,
   MapPin,
   Bell,
-  Moon,
   Info,
   LogOut,
   ChevronRight,
@@ -30,7 +29,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/auth-context';
 import * as api from '@/lib/api';
 
@@ -47,7 +45,6 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
     if (!loading && !user) router.push('/login');
   }, [loading, user, router]);
 
-  const [darkMode, setDarkMode] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [showAccountDialog, setShowAccountDialog] = useState(false);
@@ -56,26 +53,6 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
   const [profilePassword, setProfilePassword] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .getPreferences()
-      .then((data) => {
-        if (data.success && data.preferences) {
-          setDarkMode(Boolean(data.preferences.dark_mode));
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleDarkModeToggle = async (checked: boolean) => {
-    setDarkMode(checked);
-    try {
-      await api.updatePreferences({ darkMode: checked });
-    } catch (err) {
-      console.error('Failed to save dark mode:', err);
-    }
-  };
 
   const handleOpenAccountDialog = () => {
     setProfileName(user?.name || '');
@@ -156,12 +133,12 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
     {
       id: 'preferences',
       title: 'App Preferences',
-      subtitle: 'Language, theme and display settings',
+      subtitle: 'Personalise your app experience',
       icon: Sliders,
       iconColor: 'text-purple-600',
       bgColor: 'bg-purple-50/70',
       borderColor: 'border-purple-100',
-      action: () => setShowAccountDialog(true),
+      action: () => router.push('/settings/preferences'),
     },
     {
       id: 'beacon',
@@ -206,8 +183,8 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
           )}
           <EchoLogo size="sm" inline={true} />
         </div>
-        <Avatar className="w-8 h-8">
-          <AvatarFallback className="bg-[#0B3C85] text-white text-[10px] font-bold">
+        <Avatar className="w-10 h-10 rounded-full border-2 border-white shadow-sm ring-2 ring-[#0B3C85]/15">
+          <AvatarFallback className="rounded-full bg-[#0B3C85] text-white text-xs font-bold">
             {userInitials}
           </AvatarFallback>
         </Avatar>
@@ -244,22 +221,11 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
           </div>
         ))}
 
-        <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-white shadow-xs text-purple-600">
-              <Moon className="w-4 h-4" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-[#0F172A]">Dark Mode</h4>
-              <p className="text-[11px] text-slate-500 font-medium">
-                Reduce eye strain
-              </p>
-            </div>
-          </div>
-          <Switch checked={darkMode} onCheckedChange={handleDarkModeToggle} />
-        </div>
-
-        <div className="p-3.5 rounded-2xl bg-cyan-50/70 border border-cyan-100 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => router.push('/about')}
+          className="w-full text-left p-3.5 rounded-2xl bg-cyan-50/70 border border-cyan-100 flex items-center justify-between cursor-pointer hover:bg-cyan-100/70 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-300"
+        >
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-xl bg-white shadow-xs text-cyan-600">
               <Info className="w-4 h-4" />
@@ -272,12 +238,12 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
-        </div>
+        </button>
 
         <Button
           type="button"
-          variant="destructive"
-          className="w-full bg-white border border-slate-200 text-red-500 flex items-center justify-center gap-2 font-bold py-2.5 rounded-xl shadow-md shadow-[#0B3C85]/20"
+          variant="outline"
+          className="w-full h-12 bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 hover:text-red-700 flex items-center justify-center gap-2 font-bold rounded-2xl shadow-none transition-colors"
           onClick={handleLogout}
           disabled={isLoggingOut}
         >
