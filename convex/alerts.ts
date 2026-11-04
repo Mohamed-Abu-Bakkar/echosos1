@@ -245,12 +245,13 @@ export const sendEmergencySms = action({
       return { configured: false, queued: 0, failed: 0, message: "SOS saved. SMS provider is not configured, so no SMS was sent." };
     }
     const contacts = await ctx.runQuery(api.contacts.getContacts, { userId: args.userId });
-    const appUrl = process.env.ECHOSOS_APP_URL?.replace(/\\/$/, "");
+    const appUrlValue = process.env.ECHOSOS_APP_URL;
+    const appUrl = appUrlValue && appUrlValue.endsWith("/") ? appUrlValue.slice(0, -1) : appUrlValue;
     const location = typeof args.latitude === "number" && typeof args.longitude === "number"
       ? "https://maps.google.com/?q=" + args.latitude + "," + args.longitude
       : "Location unavailable; please contact the user immediately.";
     const tracking = appUrl ? appUrl + "/track?id=" + encodeURIComponent(args.eventId) : "Event ID: " + args.eventId;
-    const body = ["ECHOSOS EMERGENCY ALERT", "An SOS beacon has been activated. Please contact the user and arrange help.", "Location: " + location, "Incident: " + tracking].join("\\n");
+    const body = ["ECHOSOS EMERGENCY ALERT", "An SOS beacon has been activated. Please contact the user and arrange help.", "Location: " + location, "Incident: " + tracking].join(String.fromCharCode(10));
     let queued = 0;
     let failed = 0;
     for (const contact of contacts) {
