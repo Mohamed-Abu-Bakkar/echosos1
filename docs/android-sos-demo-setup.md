@@ -8,6 +8,16 @@
 - SMS queue/failure results are written to `alert_history` and `notifications`, which are in the same Convex database read by the EchoSOS Admin dashboard.
 - The admin dashboard remains read-only for incident operations.
 
+## Shared admin dashboard
+
+The separate `echoSOS-admin` app uses the same Convex deployment. The app repository now provides read-only `admin.overview`, `admin.listUsers`, `admin.listBeacons`, `admin.listEmergencyContacts`, and `admin.listAlertHistory` queries. Set the one administrator email on the development deployment:
+
+```bash
+npx convex env set ADMIN_EMAIL "admin@example.com"
+```
+
+Create the administrator account through the controlled Better Auth sign-up/bootstrap flow used by the admin app, using that exact email. Public admin registration should remain disabled. Do not point either app at production during this showcase.
+
 ## SMS provider setup (required for real messages)
 
 The app does not use the phone SIM as an SMS gateway. SMS is sent server-side through Twilio so it can be attempted even if the app is not the sender device. Create/configure a Twilio account and an SMS-capable sender, then set these on the **development Convex deployment only**:
