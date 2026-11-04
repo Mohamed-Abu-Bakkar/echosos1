@@ -12,13 +12,13 @@ import authConfig from "./auth.config";
  *
  * Demo OTP policy:
  * - The fixed code is accepted only when ECHOSOS_DEMO_OTP_ENABLED=true.
- * - It is rejected whenever NODE_ENV=production.
+ * - It is hard-allowlisted to the current development Convex site URL.
  * - No OTP is logged and no SMS delivery is implied.
  * - Production must configure a real server-side SMS sender before enabling
  *   phone verification or password recovery.
  */
 // Hard allowlist this demo verifier to the confirmed development deployment.
- // Production deployments cannot activate it by copying environment flags.
+// Production deployments cannot activate it by copying environment flags.
 const DEMO_OTP_ALLOWED_SITE_URL =
   "https://perceptive-schnauzer-138.convex.site";
 
