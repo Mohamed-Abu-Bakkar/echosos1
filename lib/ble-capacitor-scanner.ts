@@ -161,22 +161,28 @@ export class CapacitorBLEScanner {
       const session = getSession();
       if (!session) return;
 
-      let coords = { latitude: 0, longitude: 0 };
+      let latitude: number | undefined;
+      let longitude: number | undefined;
       if (typeof navigator !== 'undefined' && navigator.geolocation) {
         try {
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000, enableHighAccuracy: true });
           });
-          coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          latitude = pos.coords.latitude;
+          longitude = pos.coords.longitude;
         } catch {}
       }
 
       await api.triggerAlert({
-        latitude: coords.latitude || undefined,
-        longitude: coords.longitude || undefined,
+        latitude,
+        longitude,
         beaconId: adv.beaconId,
-        eventId: adv.eventId
+        eventId: adv.eventId ?? undefined
       });
+      if (!result.success) {
+        this.lastEmergencyKey = undefined;
+        console.error('SOS could not be recorded:', result.message);
+      }
     } catch (err) {
       this.lastEmergencyKey = undefined;
       console.error('Failed to trigger emergency alert:', err);
