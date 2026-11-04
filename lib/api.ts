@@ -188,6 +188,7 @@ export async function triggerAlert(body: { latitude?: number; longitude?: number
     });
     const contactResult = await getContacts();
     const contacts = contactResult.success ? contactResult.contacts.slice(0, 5) : [];
+    const previousSms = await convexQuery("notifications.js:getNotifications", { userId, type: "SOS" });
     let queued = 0;
     let failed = 0;
     const location = typeof body.latitude === "number" && typeof body.longitude === "number"
@@ -206,6 +207,12 @@ export async function triggerAlert(body: { latitude?: number; longitude?: number
         smsMessage = "SOS recorded, but SIM SMS can only be sent from the installed Android app.";
       } else {
         for (const contact of contacts) {
+          const wasSubmitted = previousSms.some((notification: any) =>
+            notification.title === "SMS Submitted" &&
+            notification.message.includes(result.eventId) &&
+            notification.message.includes(contact.phone)
+          );
+          if (wasSubmitted) continue;
           let status = "SMS Failed";
           let detail = "Android did not accept the SMS request.";
           try {
