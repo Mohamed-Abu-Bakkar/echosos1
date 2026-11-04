@@ -68,16 +68,8 @@ public class EchoSOSMonitorPlugin extends Plugin {
         }
     }
 
-    @Override
-    protected void handleOnDestroy() {
-        if (beaconReceiver != null) {
-            try {
-                getContext().unregisterReceiver(beaconReceiver);
-            } catch (IllegalArgumentException ignored) {}
-            beaconReceiver = null;
-        }
-        super.handleOnDestroy();
-    }
+    // The Capacitor plugin instance and its application-context receiver share
+    // the Android process lifetime. The system releases both when the process exits.
 
     @PluginMethod
     public void requestMonitorPermissions(PluginCall call) {

@@ -11,8 +11,10 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
@@ -65,6 +67,22 @@ public class EchoSOSMonitorService extends Service {
     private final Runnable scanRetry = () -> {
         if (scanCallback == null) startBleScan();
     };
+    private final BroadcastReceiver bluetoothStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!BluetoothAdapter.ACTION_STATE_CHANGED.equals(intent.getAction())) return;
+            int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+            if (state == BluetoothAdapter.STATE_OFF || state == BluetoothAdapter.STATE_TURNING_OFF) {
+                stopBleScan();
+                bluetoothStatus = "Bluetooth is turned off";
+                updateNotification();
+            } else if (state == BluetoothAdapter.STATE_ON) {
+                bluetoothStatus = "Bluetooth enabled · restarting scan";
+                updateNotification();
+                startBleScan();
+            }
+        }
+    };
 
     @Override
     public void onCreate() {
@@ -75,6 +93,12 @@ public class EchoSOSMonitorService extends Service {
         beaconStatus = preferences.getString("beaconStatus", "Waiting for EchoSOS beacon");
         lastSosEvent = preferences.getString("lastSosEvent", "No SOS event detected");
         createNotificationChannel();
+        IntentFilter bluetoothFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(bluetoothStateReceiver, bluetoothFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(bluetoothStateReceiver, bluetoothFilter);
+        }
     }
 
     @Override
@@ -264,6 +288,17 @@ public class EchoSOSMonitorService extends Service {
         mainHandler.postDelayed(scanRetry, 15000L);
     }
 
+    private void stopBleScan() {
+        if (scanner != null && scanCallback != null) {
+            try {
+                scanner.stopScan(scanCallback);
+            } catch (SecurityException ignored) {}
+        }
+        scanCallback = null;
+        scanner = null;
+        mainHandler.removeCallbacks(scanRetry);
+    }
+
     private void handleScanResult(ScanResult result) {
         if (result == null || result.getScanRecord() == null) return;
         SparseArray<byte[]> manufacturerData = result.getScanRecord().getManufacturerSpecificData();
@@ -405,13 +440,10 @@ public class EchoSOSMonitorService extends Service {
 
     @Override
     public void onDestroy() {
-        mainHandler.removeCallbacks(scanRetry);
-        if (scanner != null && scanCallback != null) {
-            try {
-                scanner.stopScan(scanCallback);
-            } catch (SecurityException ignored) {}
-        }
-        scanCallback = null;
+        stopBleScan();
+        try {
+            unregisterReceiver(bluetoothStateReceiver);
+        } catch (IllegalArgumentException ignored) {}
         networkExecutor.shutdown();
         super.onDestroy();
     }
