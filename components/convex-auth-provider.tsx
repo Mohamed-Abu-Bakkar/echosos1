@@ -17,7 +17,7 @@ export function ConvexAuthProvider({ children }: { children: ReactNode }) {
   return (
     <ConvexBetterAuthProvider
       client={convex}
-      authClient={authClient as ComponentProps<typeof ConvexBetterAuthProvider>["authClient"]}
+      authClient={authClient as unknown as ComponentProps<typeof ConvexBetterAuthProvider>["authClient"]}
     >
       {children}
     </ConvexBetterAuthProvider>
