@@ -137,3 +137,25 @@ Before any merge, verify all of the following on a real Convex development deplo
 - Sign-out and app restart/session restoration work on Android.
 
 Do not merge until the generated files are committed, the checks pass, and the authorization/account-mapping work is complete. A successful static build alone does not validate Convex auth or Android runtime behavior.
+
+
+## Demo phone OTP implementation
+
+The development branch now includes Better Auth's phone-number plugin and a
+server-side demo OTP verifier. The fixed code is `123456`, and it is accepted
+only when all of these conditions hold:
+
+- `ECHOSOS_DEMO_OTP_ENABLED=true`
+- `ECHOSOS_ENV=development`
+- `NODE_ENV` is not `production`
+
+All other configurations reject the fixed code. The demo sender does not send
+SMS, return the code to the client, or write it to logs. This is a local/demo
+verification mechanism only; it does not prove phone ownership. Never set these
+flags in a production deployment. A production SMS sender and real delivery
+provider are required before enabling phone verification or password recovery
+for real users.
+
+The Better Auth client also registers the phone-number client plugin. The app's
+legacy login/session UI and user-ID-based Convex calls still need to be migrated
+before this authentication setup is considered complete.
