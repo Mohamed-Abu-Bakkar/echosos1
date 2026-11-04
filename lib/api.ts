@@ -9,6 +9,7 @@ import { Capacitor } from '@capacitor/core';
 import { convexQuery, convexMutation } from "./convex-client";
 import { getSession, setSession, clearSession, hashPassword, type StoredSession } from "./session";
 import { sendSmsThroughDevice } from "./native-sms";
+import { resolveAdvertisement, buildBeaconLocalName } from "./ble-protocol";
 
 export interface ApiUser {
   id: string;
@@ -536,16 +537,31 @@ export async function scanBeacon(): Promise<{
         BleClient.requestLEScan(
           { allowDuplicates: false },
           (result) => {
-            const name = result.device.name || result.localName || '';
-            const pattern = /echo|beacon|sos|esp/i;
-            if (pattern.test(name) || name === '') {
-              devices.set(result.device.deviceId, {
-                name: name || 'EchoSOS Beacon',
-                mac: result.device.deviceId,
-                signal: result.rssi ? `${result.rssi} dBm` : 'N/A',
-                available: true
-              });
-            }
+            const name =
+              result.device?.name ||
+              result.localName ||
+              result.advertisement?.localName ||
+              '';
+            const rawManufacturer =
+              result.manufacturerData ||
+              result.advertisement?.manufacturerData ||
+              {};
+            const manufacturerData = Object.entries(rawManufacturer)
+              .map(([vendorId, data]) => ({
+                vendorId: Number(vendorId),
+                data: data as DataView | ArrayBuffer | Uint8Array,
+              }))
+              .filter((entry) => Number.isFinite(entry.vendorId));
+            const advertisement = resolveAdvertisement(name, manufacturerData);
+            const deviceId = result.device?.deviceId || result.deviceId || '';
+            if (!advertisement || !deviceId) return;
+
+            devices.set(deviceId, {
+              name: buildBeaconLocalName(advertisement.mode, advertisement.beaconId),
+              mac: deviceId,
+              signal: typeof result.rssi === 'number' ? `${result.rssi} dBm` : 'N/A',
+              available: true,
+            });
           }
         ).then(() => {
           setTimeout(async () => {
