@@ -35,8 +35,22 @@ export const overview = query({
       ctx.db.query("users").order("desc").take(501),
       ctx.db.query("beacons").order("desc").take(501),
     ]);
+    const enrichedAlerts = await Promise.all(activeAlerts.map(async (alert) => {
+      const [owner, contacts] = await Promise.all([
+        ctx.db.get(alert.user_id),
+        ctx.db.query("emergency_contacts")
+          .withIndex("user_id", (q) => q.eq("user_id", alert.user_id))
+          .collect(),
+      ]);
+      return {
+        ...alert,
+        user_name: owner?.name ?? "Unknown user",
+        user_phone: owner?.phone ?? "",
+        emergency_contact_count: contacts.length,
+      };
+    }));
     return {
-      activeAlerts,
+      activeAlerts: enrichedAlerts,
       recentEvents,
       usersSample: Math.min(users.length, 500),
       usersSampleMayBeTruncated: users.length > 500,
