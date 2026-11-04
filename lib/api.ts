@@ -551,11 +551,15 @@ export async function scanBeacon(): Promise<{
               }))
               .filter((entry) => Number.isFinite(entry.vendorId));
             const advertisement = resolveAdvertisement(name, manufacturerData);
-            const deviceId = result.device.deviceId || '';
-            if (!advertisement || !deviceId) return;
+            const deviceId = result.device?.deviceId || '';
+            // Show any nearby device whose advertised name starts with EchoSOS-.
+            // Full protocol validation remains mandatory before emergency actions.
+            if ((!advertisement && !name.toLowerCase().startsWith('echosos-')) || !deviceId) return;
 
             devices.set(deviceId, {
-              name: buildBeaconLocalName(advertisement.mode, advertisement.beaconId),
+              name: advertisement
+                ? buildBeaconLocalName(advertisement.mode, advertisement.beaconId)
+                : name,
               mac: deviceId,
               signal: typeof result.rssi === 'number' ? `${result.rssi} dBm` : 'N/A',
               available: true,
