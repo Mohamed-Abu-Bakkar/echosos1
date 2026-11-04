@@ -6,6 +6,8 @@
 
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { Capacitor } from '@capacitor/core';
+import { convexQuery, convexMutation, convexAction, mapDoc, mapDocs } from "./convex-client";
+import { getSession, setSession, clearSession, hashPassword, type StoredSession } from "./session";
 
 export interface ApiUser {
   id: string;
