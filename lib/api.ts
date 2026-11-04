@@ -6,6 +6,10 @@
 
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { Capacitor } from '@capacitor/core';
+import { convexQuery, convexMutation } from "./convex-client";
+import { getSession, setSession, clearSession, hashPassword, type StoredSession } from "./session";
+import { sendSmsThroughDevice } from "./native-sms";
+import { resolveAdvertisement, buildBeaconLocalName } from "./ble-protocol";
 
 export interface ApiUser {
   id: string;
@@ -175,38 +179,75 @@ export async function getAlertByEventId(eventId: string): Promise<{
   }
 }
 
-export async function triggerAlert(body: {
-  latitude?: number;
-  longitude?: number;
-  beaconId?: string;
-  eventId?: string;
-}): Promise<{
+export async function triggerAlert(body: { latitude?: number; longitude?: number; beaconId?: string; eventId?: string }): Promise<{
   success: boolean;
   message?: string;
+  sms?: { configured: boolean; queued: number; failed: number; total?: number; message: string };
   alert?: { id: string; eventId: string; beaconId: string };
 }> {
   const userId = requireUserId();
   if (!userId) return { success: false, message: "Unauthorized" };
-
   try {
     const result = await convexMutation("alerts.js:triggerAlert", {
-      userId,
-      latitude: body.latitude,
-      longitude: body.longitude,
-      beaconId: body.beaconId,
-      eventId: body.eventId,
+      userId, latitude: body.latitude, longitude: body.longitude, beaconId: body.beaconId, eventId: body.eventId,
     });
+    const contactResult = await getContacts();
+    const contacts = contactResult.success ? contactResult.contacts.slice(0, 5) : [];
+    const previousSms = await convexQuery("notifications.js:getNotifications", { userId, type: "SOS" });
+    let queued = 0;
+    let failed = 0;
+    const location = typeof body.latitude === "number" && typeof body.longitude === "number"
+      ? "https://maps.google.com/?q=" + body.latitude + "," + body.longitude
+      : "Phone GPS location is unavailable. Please call the user immediately.";
+    const message = [
+      "ECHOSOS EMERGENCY ALERT",
+      "An SOS beacon has been activated. Please contact the user and arrange help.",
+      "Location: " + location,
+      "Incident ID: " + result.eventId,
+    ].join(String.fromCharCode(10));
+    let smsMessage = "No emergency contacts are saved; no SMS was sent.";
+    if (contacts.length > 0) {
+      if (typeof window === "undefined") {
+        failed = contacts.length;
+        smsMessage = "SOS recorded, but SIM SMS can only be sent from the installed Android app.";
+      } else {
+        for (const contact of contacts) {
+          const wasSubmitted = previousSms.some((notification: any) =>
+            notification.title === "SMS Submitted" &&
+            notification.message.includes(result.eventId) &&
+            notification.message.includes(contact.phone)
+          );
+          if (wasSubmitted) continue;
+          let status = "SMS Failed";
+          let detail = "Android did not accept the SMS request.";
+          try {
+            await sendSmsThroughDevice(contact.phone, message);
+            queued += 1;
+            status = "SMS Submitted";
+            detail = "SMS submitted to the Android device SIM. Carrier/handset delivery is not confirmed.";
+          } catch (smsError) {
+            failed += 1;
+            detail = smsError instanceof Error ? smsError.message : "SMS submission failed";
+          }
+          try {
+            await convexMutation("alerts.js:recordSmsDelivery", {
+              userId, eventId: result.eventId, contactName: contact.name, contactPhone: contact.phone, status, detail,
+            });
+          } catch (recordError) {
+            console.error("Could not save SMS status to Convex:", recordError);
+          }
+        }
+        smsMessage = queued + " SMS message(s) submitted to the phone SIM; " + failed + " failed. Carrier delivery is not confirmed.";
+      }
+    }
+    const sms = { configured: typeof window !== "undefined", queued, failed, total: contacts.length, message: smsMessage };
     return {
-      success: true,
-      message: "SOS Distress Signal Dispatched!",
-      alert: {
-        id: result.historyId,
-        eventId: result.eventId,
-        beaconId: result.beaconId,
-      },
+      success: true, message: sms.message, sms,
+      alert: { id: result.historyId, eventId: result.eventId, beaconId: result.beaconId },
     };
-  } catch {
-    return { success: false, message: "Failed to trigger alert" };
+  } catch (error) {
+    console.error("Failed to record SOS:", error);
+    return { success: false, message: "Failed to record SOS alert." };
   }
 }
 
@@ -226,6 +267,7 @@ export async function cancelAlert(body: {
   }
 
   try {
+    const activeBeforeCancel = await getAlert();
     const result = await convexMutation("alerts.js:cancelAlert", {
       userId,
       eventId: body.eventId,
@@ -249,12 +291,61 @@ export async function cancelAlert(body: {
       };
     }
 
+    // Notify every saved emergency contact after the backend confirms cancellation.
+    const contactResult = await getContacts();
+    const contacts = contactResult.success ? contactResult.contacts : [];
+    const cancelledEventId = result.eventId || body.eventId || "Unknown";
+    const location = activeBeforeCancel.alertState &&
+      typeof activeBeforeCancel.alertState.latitude === "number" &&
+      typeof activeBeforeCancel.alertState.longitude === "number"
+      ? "Location: https://maps.google.com/?q=" +
+        activeBeforeCancel.alertState.latitude + "," + activeBeforeCancel.alertState.longitude
+      : "Location: unavailable";
+    const cancellationMessage = [
+      "ECHOSOS FALSE ALERT - CANCELLED",
+      "The previous EchoSOS emergency alert was a false alarm and has been cancelled by the user.",
+      location,
+      "Beacon ID: " + (body.beaconId || activeBeforeCancel.alertState?.beacon_id || "Unknown"),
+      "Incident ID: " + cancelledEventId,
+      "No emergency assistance is required for this incident.",
+    ].join(String.fromCharCode(10));
+
+    let submitted = 0;
+    let failed = 0;
+    for (const contact of contacts) {
+      let status = "SMS Failed";
+      let detail = "Android did not accept the false-alert cancellation SMS.";
+      try {
+        await sendSmsThroughDevice(contact.phone, cancellationMessage);
+        submitted += 1;
+        status = "SMS Submitted";
+        detail = "False-alert cancellation SMS submitted to the Android device SIM. Carrier/handset delivery is not confirmed.";
+      } catch (smsError) {
+        failed += 1;
+        detail = smsError instanceof Error ? smsError.message : "Cancellation SMS submission failed";
+      }
+      try {
+        await convexMutation("alerts.js:recordSmsDelivery", {
+          userId,
+          eventId: cancelledEventId,
+          contactName: contact.name,
+          contactPhone: contact.phone,
+          status,
+          detail,
+        });
+      } catch (recordError) {
+        console.error("Could not save cancellation SMS status:", recordError);
+      }
+    }
+
     return {
       success: true,
-      message: "SOS Alert cancelled. Contacts have been updated.",
+      message: "SOS cancelled. " + submitted + " cancellation SMS message(s) submitted; " + failed + " failed.",
+      sms: { configured: typeof window !== "undefined", queued: submitted, failed, total: contacts.length },
       ...result,
     };
-  } catch {
+  } catch (error) {
+    console.error("Failed to cancel SOS:", error);
     return { success: false, message: "Failed to cancel alert", status: 500 };
   }
 }
@@ -488,53 +579,66 @@ export async function scanBeacon(): Promise<{
   timestamp?: string;
 }> {
   try {
-    if (Capacitor.isNativePlatform()) {
-      await BleClient.initialize();
-      const enabled = await BleClient.isEnabled();
-      if (!enabled) {
-        await BleClient.enable();
-      }
-      await BleClient.requestLEScanPermissions();
-      
-      return new Promise((resolve) => {
-        const devices = new Map<string, any>();
-        BleClient.requestLEScan(
-          { allowDuplicates: false },
-          (result) => {
-            const name = result.device.name || result.localName || '';
-            const pattern = /echo|beacon|sos|esp/i;
-            if (pattern.test(name) || name === '') {
-              devices.set(result.device.deviceId, {
-                name: name || 'EchoSOS Beacon',
-                mac: result.device.deviceId,
-                signal: result.rssi ? `${result.rssi} dBm` : 'N/A',
-                available: true
-              });
-            }
-          }
-        ).then(() => {
-          setTimeout(async () => {
-            await BleClient.stopLEScan();
-            const deviceList = Array.from(devices.values());
-            resolve({
-              success: true,
-              scannedCount: deviceList.length,
-              devices: deviceList,
-              message: deviceList.length > 0 ? 'EchoSOS compatible device found' : 'No EchoSOS compatible beacons found',
-              timestamp: new Date().toISOString(),
-            });
-          }, 5000);
-        }).catch((err) => {
-          resolve({
-            success: false,
-            scannedCount: 0,
-            devices: [],
-            message: err?.message || 'BLE scan failed',
-            timestamp: new Date().toISOString(),
-          });
+    if (!Capacitor.isNativePlatform()) {
+      return {
+        success: false,
+        scannedCount: 0,
+        devices: [],
+        message: 'BLE scanning only available on mobile app',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    await BleClient.initialize();
+    const enabled = await BleClient.isEnabled();
+    if (!enabled) await BleClient.enable();
+
+    // Collect all BLE scan results here. EchoSOS filtering is intentionally
+    // performed by the screen, not by the scanner.
+    return await new Promise((resolve) => {
+      const devices = new Map<string, { name: string; mac: string; signal: string; available: boolean }>();
+      let settled = false;
+      const finish = async () => {
+        if (settled) return;
+        settled = true;
+        try { await BleClient.stopLEScan(); } catch {}
+        const deviceList = Array.from(devices.values());
+        resolve({
+          success: true,
+          scannedCount: deviceList.length,
+          devices: deviceList,
+          message: deviceList.length
+            ? 'BLE scan complete'
+            : 'No named BLE devices received during scan',
+          timestamp: new Date().toISOString(),
+        });
+      };
+
+      BleClient.requestLEScan({ allowDuplicates: false }, (result) => {
+        const deviceId = result.device?.deviceId || '';
+        if (!deviceId) return;
+
+        const name = result.device?.name || result.localName || '';
+        devices.set(deviceId, {
+          name,
+          mac: deviceId,
+          signal: typeof result.rssi === 'number' ? `${result.rssi} dBm` : 'N/A',
+          available: Boolean(name),
+        });
+      }).then(() => {
+        setTimeout(() => { void finish(); }, 8000);
+      }).catch((err) => {
+        if (settled) return;
+        settled = true;
+        resolve({
+          success: false,
+          scannedCount: 0,
+          devices: [],
+          message: err?.message || 'BLE scan failed',
+          timestamp: new Date().toISOString(),
         });
       });
-    }
+    });
   } catch (err: any) {
     return {
       success: false,
@@ -544,13 +648,6 @@ export async function scanBeacon(): Promise<{
       timestamp: new Date().toISOString(),
     };
   }
-  return {
-    success: false,
-    scannedCount: 0,
-    devices: [],
-    message: 'BLE scanning only available on mobile app',
-    timestamp: new Date().toISOString(),
-  };
 }
 
 // ---------- preferences / profile ----------

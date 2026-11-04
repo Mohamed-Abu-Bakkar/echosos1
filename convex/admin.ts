@@ -1,20 +1,27 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { authComponent } from "./auth";
+import type { GenericCtx } from "@convex-dev/better-auth";
+import type { DataModel } from "./_generated/dataModel";
 
 /**
- * Admin endpoints are read-only. The only permitted administrator is the
- * address configured in ADMIN_EMAIL. Never trust a browser-supplied role/id.
+ * Read-only administration API consumed by the separate echoSOS-admin app.
+ * Every query checks the signed-in Better Auth identity against ADMIN_EMAIL.
  */
-async function requireAdmin(ctx: {
-  auth: { getUserIdentity: () => Promise<{ email?: string } | null> };
-}) {
-  const identity = await ctx.auth.getUserIdentity();
+async function requireAdmin(ctx: GenericCtx<DataModel>) {
+  const user = await authComponent.getAuthUser(ctx);
   const configuredEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const identityEmail = identity?.email?.trim().toLowerCase();
+  const signedInEmail =
+    typeof user?.email === "string" ? user.email.trim().toLowerCase() : "";
 
-  if (!identityEmail || !configuredEmail || identityEmail !== configuredEmail) {
-    throw new Error("Administrator access required");
+  if (!configuredEmail || !signedInEmail || signedInEmail !== configuredEmail) {
+    throw new Error("Administrator access denied.");
   }
+  return user;
+}
+
+function boundedLimit(value: number | undefined, fallback = 100): number {
+  return Math.max(1, Math.min(500, Math.floor(value ?? fallback)));
 }
 
 export const overview = query({
@@ -29,26 +36,30 @@ export const overview = query({
   }),
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const [activeAlerts, recentEvents, users, beacons] = await Promise.all([
-      ctx.db.query("active_alert").withIndex("by_active", (q) => q.eq("is_active", true)).order("desc").take(100),
-      ctx.db.query("alert_history").withIndex("by_created_at").order("desc").take(20),
+    const [activeRows, users, beacons, recentEvents] = await Promise.all([
+      ctx.db.query("active_alert").order("desc").take(500),
       ctx.db.query("users").order("desc").take(501),
       ctx.db.query("beacons").order("desc").take(501),
+      ctx.db.query("alert_history").order("desc").take(20),
     ]);
-    const enrichedAlerts = await Promise.all(activeAlerts.map(async (alert) => {
-      const [owner, contacts] = await Promise.all([
-        ctx.db.get(alert.user_id),
-        ctx.db.query("emergency_contacts")
-          .withIndex("user_id", (q) => q.eq("user_id", alert.user_id))
-          .collect(),
-      ]);
-      return {
-        ...alert,
-        user_name: owner?.name ?? "Unknown user",
-        user_phone: owner?.phone ?? "",
-        emergency_contact_count: contacts.length,
-      };
-    }));
+
+    const enrichedAlerts = await Promise.all(
+      activeRows.filter((alert) => alert.is_active).map(async (alert) => {
+        const [owner, contacts] = await Promise.all([
+          ctx.db.get(alert.user_id),
+          ctx.db.query("emergency_contacts")
+            .withIndex("user_id", (q) => q.eq("user_id", alert.user_id))
+            .collect(),
+        ]);
+        return {
+          ...alert,
+          user_name: owner?.name ?? "Unknown user",
+          user_phone: owner?.phone ?? "",
+          emergency_contact_count: contacts.length,
+        };
+      }),
+    );
+
     return {
       activeAlerts: enrichedAlerts,
       recentEvents,
@@ -108,19 +119,6 @@ export const listBeacons = query({
   },
 });
 
-export const listAlertHistory = query({
-  args: { limit: v.optional(v.number()) },
-  returns: v.array(v.any()),
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 50), 100));
-    return await ctx.db.query("alert_history")
-      .withIndex("by_created_at")
-      .order("desc")
-      .take(limit);
-  },
-});
-
 export const listEmergencyContacts = query({
   args: { limit: v.optional(v.number()) },
   returns: v.array(v.object({
@@ -155,5 +153,18 @@ export const listEmergencyContacts = query({
       };
     }));
     return rows;
+  },
+});
+
+export const listAlertHistory = query({
+  args: { limit: v.optional(v.number()) },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 50), 100));
+    return await ctx.db.query("alert_history")
+      .withIndex("by_created_at")
+      .order("desc")
+      .take(limit);
   },
 });

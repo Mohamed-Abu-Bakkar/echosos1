@@ -131,7 +131,7 @@ export const triggerAlert = mutation({
       user_id: args.userId,
       type: "SOS",
       title: "Emergency Distress Broadcasted",
-      message: `SOS coordinates (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) transmitted to ${contactCount.length} emergency contacts and police dispatch. Event ${eventId}. Live tracking link: /track?id=${eventId}`,
+      message: `SOS incident recorded at (${latitude.toFixed(4)}, ${longitude.toFixed(4)}). ${contactCount.length} emergency contact(s) configured. SMS delivery is processed separately and is not confirmed yet. Event ${eventId}. Tracking: /track?id=${eventId}`,
       is_read: false,
       created_at: timestamp,
     });
@@ -187,7 +187,7 @@ export const cancelAlert = mutation({
       user_id: args.userId,
       type: "SYSTEM",
       title: "SOS Alert Cancelled by User",
-      message: `False alert notice dispatched to emergency contacts for event ${existing.event_id}. Emergency routing standby resumed. ${verifyNote}`,
+      message: `SOS event ${existing.event_id} was cancelled in EchoSOS. Contact cancellation messages are not sent by this app yet. ${verifyNote}`,
       is_read: false,
       created_at: new Date().toISOString(),
     });
@@ -225,5 +225,46 @@ export const getAlertHistory = query({
       return rows.filter((a) => a.event_type === "SYSTEM_UPDATE");
     }
     return rows;
+  },
+});
+
+/** Records the result returned by Android's device-SIM SMS sender. */
+export const recordSmsDelivery = mutation({
+  args: {
+    userId: v.id("users"),
+    eventId: v.string(),
+    contactName: v.string(),
+    contactPhone: v.string(),
+    status: v.string(),
+    detail: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireUser(ctx, args.userId);
+    if (args.status === "SMS Submitted") {
+      const active = await ctx.db
+        .query("active_alert")
+        .withIndex("by_event_id", (q) => q.eq("event_id", args.eventId))
+        .first();
+      if (active) {
+        await ctx.db.patch(active._id, {
+          contacts_dispatched: active.contacts_dispatched + 1,
+        });
+      }
+    }
+    await ctx.db.insert("alert_history", {
+      user_id: args.userId,
+      event_type: "CONTACT_DELIVERED",
+      status_badge: args.status,
+      created_at: new Date().toISOString(),
+    });
+    await ctx.db.insert("notifications", {
+      user_id: args.userId,
+      type: "SOS",
+      title: args.status,
+      message: args.contactName + " (" + args.contactPhone + "): " + args.detail + " Incident " + args.eventId + ".",
+      is_read: false,
+      created_at: new Date().toISOString(),
+    });
+    return true;
   },
 });

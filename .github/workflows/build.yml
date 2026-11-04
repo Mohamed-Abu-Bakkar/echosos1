@@ -1,0 +1,29 @@
+name: EchoSOS build validation
+
+on:
+  push:
+    branches:
+      - feature/stage-1-better-auth
+  pull_request:
+    branches:
+      - main
+      - feature/stage-1-better-auth
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_CONVEX_URL: https://perceptive-schnauzer-138.convex.cloud
+          NEXT_PUBLIC_CONVEX_SITE_URL: https://perceptive-schnauzer-138.convex.site

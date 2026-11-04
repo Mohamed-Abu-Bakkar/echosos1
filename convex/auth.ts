@@ -39,3 +39,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
 
 export const createAuth = (ctx: GenericCtx<DataModel>) =>
   betterAuth(createAuthOptions(ctx));
+
+export const getAuthUser = async (ctx: GenericCtx<DataModel>) =>
+  authComponent.getAuthUser(ctx);
