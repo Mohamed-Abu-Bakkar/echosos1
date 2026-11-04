@@ -7,13 +7,15 @@
  *
  * Manufacturer data layout (after company ID 0xE505):
  *   [0]     mode      uint8  'r' | 'e' | 'c'
- *   [1..4]  beaconId  uint32 big-endian
- *   [5..8]  eventId   uint32 big-endian (0 = no active event)
+ *   [1..6]  beaconId  uint48 big-endian
+ *   [7..10] eventId   uint32 big-endian (0 = no active event)
+ * Legacy 9-byte advertisements with uint32 beacon IDs remain readable.
  *
  * GATT Event State characteristic payload (read / notify / write):
  *   [0]     mode      uint8  'r' | 'e' | 'c'
- *   [1..4]  beaconId  uint32 big-endian
- *   [5..8]  eventId   uint32 big-endian (0 = no active event)
+ *   [1..6]  beaconId  uint48 big-endian
+ *   [7..10] eventId   uint32 big-endian (0 = no active event)
+ * Legacy 9-byte advertisements with uint32 beacon IDs remain readable.
  *   [9]     battery   uint8  0-100 (optional; 0xFF = unknown)
  *
  * Advertised local name remains a human-readable hint only:
@@ -46,8 +48,10 @@ export const ECHOSOS_SERVICE_UUID = '0000e505-0000-1000-8000-00805f9b34fb';
 export const ECHOSOS_EVENT_STATE_CHAR_UUID =
   '0000e506-0000-1000-8000-00805f9b34fb';
 
-export const EVENT_STATE_LENGTH = 10;
-export const MANUFACTURER_PAYLOAD_LENGTH = 9;
+export const EVENT_STATE_LENGTH = 12;
+export const MANUFACTURER_PAYLOAD_LENGTH = 11;
+const LEGACY_EVENT_STATE_LENGTH = 10;
+const LEGACY_MANUFACTURER_PAYLOAD_LENGTH = 9;
 export const BATTERY_UNKNOWN = 0xff;
 
 export interface BeaconAdvertisement {
@@ -113,9 +117,9 @@ export function encodeBeaconState(
 ): Uint8Array {
   const payload = new Uint8Array(EVENT_STATE_LENGTH);
   payload[0] = mode.charCodeAt(0);
-  payload.set(idToBytes(beaconId), 1);
-  payload.set(idToBytes(eventId || '00000000'), 5);
-  payload[9] =
+  payload.set(idToBytes(beaconId, 6), 1);
+  payload.set(idToBytes(eventId || '00000000', 4), 7);
+  payload[11] =
     batteryPercent === undefined || batteryPercent === null
       ? BATTERY_UNKNOWN
       : Math.max(0, Math.min(100, Math.round(batteryPercent)));
@@ -123,17 +127,21 @@ export function encodeBeaconState(
 }
 
 function decodeState(bytes: Uint8Array): GattEventState | null {
-  if (bytes.length < MANUFACTURER_PAYLOAD_LENGTH) return null;
+  const isLegacy = bytes.length === LEGACY_MANUFACTURER_PAYLOAD_LENGTH || bytes.length === LEGACY_EVENT_STATE_LENGTH;
+  if (bytes.length < LEGACY_MANUFACTURER_PAYLOAD_LENGTH) return null;
   const mode = parseMode(bytes[0]);
   if (!mode) return null;
 
-  const beaconId = bytesToId(bytes, 1);
-  const eventRaw = bytesToId(bytes, 5);
+  const idLength = isLegacy ? 4 : 6;
+  const eventOffset = 1 + idLength;
+  const beaconId = bytesToId(bytes, 1, idLength);
+  const eventRaw = bytesToId(bytes, eventOffset, 4);
   const eventId = eventRaw === '00000000' ? null : eventRaw;
 
+  const batteryOffset = eventOffset + 4;
   const batteryPercent =
-    bytes.length >= EVENT_STATE_LENGTH && bytes[9] !== BATTERY_UNKNOWN
-      ? bytes[9]
+    bytes.length > batteryOffset && bytes[batteryOffset] !== BATTERY_UNKNOWN
+      ? bytes[batteryOffset]
       : undefined;
 
   return { mode, beaconId, eventId, batteryPercent };
@@ -145,7 +153,7 @@ export function decodeManufacturerData(
 ): GattEventState | null {
   if (vendorId !== ECHOSOS_COMPANY_ID) return null;
   const bytes = toUint8Array(data);
-  if (!bytes || bytes.length < MANUFACTURER_PAYLOAD_LENGTH) return null;
+  if (!bytes || (bytes.length < MANUFACTURER_PAYLOAD_LENGTH && bytes.length !== LEGACY_MANUFACTURER_PAYLOAD_LENGTH)) return null;
   return decodeState(bytes);
 }
 
@@ -211,7 +219,7 @@ export function beaconIdFromName(name: string | null | undefined): string | null
     const prefix = MODE_PREFIX[mode];
     if (normalizedName.toLowerCase().startsWith(prefix.toLowerCase())) {
       const suffix = normalizedName.slice(prefix.length);
-      return /^[0-9a-fA-F]{1,8}$/.test(suffix)
+      return /^[0-9a-fA-F]{1,12}$/.test(suffix)
         ? suffix.toLowerCase().padStart(8, '0')
         : null;
     }
@@ -219,21 +227,21 @@ export function beaconIdFromName(name: string | null | undefined): string | null
   return null;
 }
 
-export function bytesToId(bytes: Uint8Array, offset: number): string {
-  const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 4);
-  return view.getUint32(0, false)
-    .toString(16)
-    .padStart(8, '0');
+export function bytesToId(bytes: Uint8Array, offset: number, length = 4): string {
+  return Array.from(bytes.slice(offset, offset + length))
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-export function idToBytes(id: string): Uint8Array {
-  const numeric = parseInt(id, 16);
-  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 0xffffffff) {
+export function idToBytes(id: string, byteLength = 4): Uint8Array {
+  const normalized = id.replace(/^0x/i, '').trim();
+  if (!/^[0-9a-fA-F]{1,12}$/.test(normalized) || normalized.length > byteLength * 2) {
     throw new Error(`Invalid EchoSOS id: ${id}`);
   }
-  const out = new Uint8Array(4);
-  new DataView(out.buffer).setUint32(0, numeric, false);
-  return out;
+  const padded = normalized.padStart(byteLength * 2, '0');
+  return Uint8Array.from({ length: byteLength }, (_, index) =>
+    parseInt(padded.slice(index * 2, index * 2 + 2), 16)
+  );
 }
 
 export function buildBeaconLocalName(mode: BeaconMode, beaconId: string): string {
