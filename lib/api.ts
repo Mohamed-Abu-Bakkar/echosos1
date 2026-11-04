@@ -179,30 +179,32 @@ export async function triggerAlert(body: {
 }): Promise<{
   success: boolean;
   message?: string;
+  sms?: { configured: boolean; queued: number; failed: number; total?: number; message: string };
   alert?: { id: string; eventId: string; beaconId: string };
 }> {
   const userId = requireUserId();
   if (!userId) return { success: false, message: "Unauthorized" };
-
   try {
     const result = await convexMutation("alerts.js:triggerAlert", {
-      userId,
-      latitude: body.latitude,
-      longitude: body.longitude,
-      beaconId: body.beaconId,
-      eventId: body.eventId,
+      userId, latitude: body.latitude, longitude: body.longitude,
+      beaconId: body.beaconId, eventId: body.eventId,
     });
+    let sms = { configured: false, queued: 0, failed: 0, message: "SMS was not attempted." };
+    try {
+      sms = await convexAction("alerts.js:sendEmergencySms", {
+        userId, eventId: result.eventId, latitude: body.latitude, longitude: body.longitude,
+      });
+    } catch (error) {
+      console.error("SOS saved, but SMS action failed:", error);
+      sms.message = "SOS was saved, but SMS sending could not be completed.";
+    }
     return {
-      success: true,
-      message: "SOS Distress Signal Dispatched!",
-      alert: {
-        id: result.historyId,
-        eventId: result.eventId,
-        beaconId: result.beaconId,
-      },
+      success: true, message: sms.message, sms,
+      alert: { id: result.historyId, eventId: result.eventId, beaconId: result.beaconId },
     };
-  } catch {
-    return { success: false, message: "Failed to trigger alert" };
+  } catch (error) {
+    console.error("Failed to record SOS:", error);
+    return { success: false, message: "Failed to record SOS alert." };
   }
 }
 
