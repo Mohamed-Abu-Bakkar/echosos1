@@ -525,69 +525,66 @@ export async function scanBeacon(): Promise<{
   timestamp?: string;
 }> {
   try {
-    if (Capacitor.isNativePlatform()) {
-      await BleClient.initialize();
-      const enabled = await BleClient.isEnabled();
-      if (!enabled) {
-        await BleClient.enable();
-      }
-      
-      return new Promise((resolve) => {
-        const devices = new Map<string, any>();
-        BleClient.requestLEScan(
-          { allowDuplicates: false },
-          (result) => {
-            const name =
-              result.device?.name ||
-              result.localName ||
-              '';
-            const rawManufacturer =
-              result.manufacturerData ||
-              {};
-            const manufacturerData = Object.entries(rawManufacturer)
-              .map(([vendorId, data]) => ({
-                vendorId: Number(vendorId),
-                data: data as DataView | ArrayBuffer | Uint8Array,
-              }))
-              .filter((entry) => Number.isFinite(entry.vendorId));
-            const advertisement = resolveAdvertisement(name, manufacturerData);
-            const deviceId = result.device?.deviceId || '';
-            // Show any nearby device whose advertised name starts with EchoSOS-.
-            // Full protocol validation remains mandatory before emergency actions.
-            if ((!advertisement && !name.toLowerCase().startsWith('echosos-')) || !deviceId) return;
+    if (!Capacitor.isNativePlatform()) {
+      return {
+        success: false,
+        scannedCount: 0,
+        devices: [],
+        message: 'BLE scanning only available on mobile app',
+        timestamp: new Date().toISOString(),
+      };
+    }
 
-            devices.set(deviceId, {
-              name: advertisement
-                ? buildBeaconLocalName(advertisement.mode, advertisement.beaconId)
-                : name,
-              mac: deviceId,
-              signal: typeof result.rssi === 'number' ? `${result.rssi} dBm` : 'N/A',
-              available: true,
-            });
-          }
-        ).then(() => {
-          setTimeout(async () => {
-            await BleClient.stopLEScan();
-            const deviceList = Array.from(devices.values());
-            resolve({
-              success: true,
-              scannedCount: deviceList.length,
-              devices: deviceList,
-              message: deviceList.length > 0 ? 'EchoSOS compatible device found' : 'No EchoSOS compatible beacons found',
-              timestamp: new Date().toISOString(),
-            });
-          }, 5000);
-        }).catch((err) => {
-          resolve({
-            success: false,
-            scannedCount: 0,
-            devices: [],
-            message: err?.message || 'BLE scan failed',
-            timestamp: new Date().toISOString(),
-          });
+    await BleClient.initialize();
+    const enabled = await BleClient.isEnabled();
+    if (!enabled) await BleClient.enable();
+
+    // Collect all BLE scan results here. EchoSOS filtering is intentionally
+    // performed by the screen, not by the scanner.
+    return await new Promise((resolve) => {
+      const devices = new Map<string, { name: string; mac: string; signal: string; available: boolean }>();
+      let settled = false;
+      const finish = async () => {
+        if (settled) return;
+        settled = true;
+        try { await BleClient.stopLEScan(); } catch {}
+        const deviceList = Array.from(devices.values());
+        resolve({
+          success: true,
+          scannedCount: deviceList.length,
+          devices: deviceList,
+          message: deviceList.length
+            ? 'BLE scan complete'
+            : 'No named BLE devices received during scan',
+          timestamp: new Date().toISOString(),
+        });
+      };
+
+      BleClient.requestLEScan({ allowDuplicates: false }, (result) => {
+        const deviceId = result.device?.deviceId || '';
+        if (!deviceId) return;
+
+        const name = result.device?.name || result.localName || '';
+        devices.set(deviceId, {
+          name,
+          mac: deviceId,
+          signal: typeof result.rssi === 'number' ? `${result.rssi} dBm` : 'N/A',
+          available: Boolean(name),
+        });
+      }).then(() => {
+        setTimeout(() => { void finish(); }, 8000);
+      }).catch((err) => {
+        if (settled) return;
+        settled = true;
+        resolve({
+          success: false,
+          scannedCount: 0,
+          devices: [],
+          message: err?.message || 'BLE scan failed',
+          timestamp: new Date().toISOString(),
         });
       });
-    }
+    });
   } catch (err: any) {
     return {
       success: false,
@@ -597,13 +594,6 @@ export async function scanBeacon(): Promise<{
       timestamp: new Date().toISOString(),
     };
   }
-  return {
-    success: false,
-    scannedCount: 0,
-    devices: [],
-    message: 'BLE scanning only available on mobile app',
-    timestamp: new Date().toISOString(),
-  };
 }
 
 // ---------- preferences / profile ----------
