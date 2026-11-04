@@ -95,3 +95,16 @@ export const listBeacons = query({
     }));
   },
 });
+
+export const listAlertHistory = query({
+  args: { limit: v.optional(v.number()) },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 50), 100));
+    return await ctx.db.query("alert_history")
+      .withIndex("by_created_at")
+      .order("desc")
+      .take(limit);
+  },
+});
