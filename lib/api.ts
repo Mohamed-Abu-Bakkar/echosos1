@@ -263,6 +263,7 @@ export async function cancelAlert(body: {
   }
 
   try {
+    const activeBeforeCancel = await getAlert();
     const result = await convexMutation("alerts.js:cancelAlert", {
       userId,
       eventId: body.eventId,
@@ -286,12 +287,61 @@ export async function cancelAlert(body: {
       };
     }
 
+    // Notify every saved emergency contact after the backend confirms cancellation.
+    const contactResult = await getContacts();
+    const contacts = contactResult.success ? contactResult.contacts : [];
+    const cancelledEventId = result.eventId || body.eventId || "Unknown";
+    const location = activeBeforeCancel.alertState &&
+      typeof activeBeforeCancel.alertState.latitude === "number" &&
+      typeof activeBeforeCancel.alertState.longitude === "number"
+      ? "Location: https://maps.google.com/?q=" +
+        activeBeforeCancel.alertState.latitude + "," + activeBeforeCancel.alertState.longitude
+      : "Location: unavailable";
+    const cancellationMessage = [
+      "ECHOSOS FALSE ALERT - CANCELLED",
+      "The previous EchoSOS emergency alert was a false alarm and has been cancelled by the user.",
+      location,
+      "Beacon ID: " + (body.beaconId || activeBeforeCancel.alertState?.beacon_id || "Unknown"),
+      "Incident ID: " + cancelledEventId,
+      "No emergency assistance is required for this incident.",
+    ].join(String.fromCharCode(10));
+
+    let submitted = 0;
+    let failed = 0;
+    for (const contact of contacts) {
+      let status = "SMS Failed";
+      let detail = "Android did not accept the false-alert cancellation SMS.";
+      try {
+        await sendSmsThroughDevice(contact.phone, cancellationMessage);
+        submitted += 1;
+        status = "SMS Submitted";
+        detail = "False-alert cancellation SMS submitted to the Android device SIM. Carrier/handset delivery is not confirmed.";
+      } catch (smsError) {
+        failed += 1;
+        detail = smsError instanceof Error ? smsError.message : "Cancellation SMS submission failed";
+      }
+      try {
+        await convexMutation("alerts.js:recordSmsDelivery", {
+          userId,
+          eventId: cancelledEventId,
+          contactName: contact.name,
+          contactPhone: contact.phone,
+          status,
+          detail,
+        });
+      } catch (recordError) {
+        console.error("Could not save cancellation SMS status:", recordError);
+      }
+    }
+
     return {
       success: true,
-      message: "SOS Alert cancelled. Contacts have been updated.",
+      message: "SOS cancelled. " + submitted + " cancellation SMS message(s) submitted; " + failed + " failed.",
+      sms: { configured: typeof window !== "undefined", queued: submitted, failed, total: contacts.length },
       ...result,
     };
-  } catch {
+  } catch (error) {
+    console.error("Failed to cancel SOS:", error);
     return { success: false, message: "Failed to cancel alert", status: 500 };
   }
 }
