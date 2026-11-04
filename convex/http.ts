@@ -5,9 +5,11 @@ import { authComponent, createAuth } from "./auth";
 
 const http = httpRouter();
 
-// Better Auth endpoints are served directly from the Convex .site host.
-// Keep this registration when adding or changing other HTTP routes.
-authComponent.registerRoutes(http, createAuth);
+authComponent.registerRoutesLazy(http, createAuth, {
+  basePath: "/api/auth",
+  cors: true,
+  trustedOrigins: [process.env.SITE_URL!],
+});
 
 /**
  * Legacy ESP32 telemetry endpoint. Kept unchanged during Stage 1 so the

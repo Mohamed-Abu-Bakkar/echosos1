@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local Android tooling state and signing material
+.echosos-android.env
+*.jks
+*.keystore
+/android/keystores/
+/android/keystore.properties

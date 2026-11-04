@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
         registerPlugin(EchoSmsPlugin.class);
+        registerPlugin(EchoSOSMonitorPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
