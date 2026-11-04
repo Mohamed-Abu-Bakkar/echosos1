@@ -79,3 +79,12 @@ Before enabling the new sign-in flow, resolve both migration requirements:
 2. **Phone verification:** decide whether existing phone numbers are trusted as already verified or must be verified through OTP. If OTP is required, select and configure the SMS provider before enabling the phone verification flow. Do not mark existing numbers verified without an explicit policy.
 
 Until these decisions and a tested migration path exist, keep this PR in draft and do not remove the existing auth path or deploy the new auth flow. This is a release blocker, not a reason to invent an email identity or bypass verification.
+
+## Confirmed recovery and SMS delivery decisions
+
+- Existing users will use a **password-reset flow**; do not migrate the legacy SHA-256 password hashes into Better Auth.
+- The Android handset's SIM/recharge plan is intended for **outbound emergency-contact SMS**, not authentication OTP delivery.
+- Do not use client-generated OTPs, self-addressed SMS, or an SMS composer as proof of phone ownership. These do not provide trustworthy server-side OTP verification.
+- Authentication phone verification and password recovery require a server-reachable SMS delivery/verification provider. Keep this provider behind a server-side adapter and do not hardcode provider credentials.
+- Until a provider is configured, phone OTP/password recovery must remain unavailable rather than silently weakening account recovery. The user-facing recovery screen should clearly explain the temporary limitation.
+- Emergency-contact SMS is a separate Android capability: it needs runtime permission, explicit user-facing disclosure, device/SIM availability, and delivery/failure handling. It must not be treated as guaranteed delivery or as a substitute for backend authentication.
