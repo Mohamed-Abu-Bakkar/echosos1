@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -32,6 +32,8 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
   const router = useRouter();
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [isTriggering, setIsTriggering] = useState(false);
+  const [isHoldingSOS, setIsHoldingSOS] = useState(false);
+  const sosHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [beacon, setBeacon] = useState<{ status?: string; device_name?: string; battery_percent?: number } | null>(null);
   const [geoStatus, setGeoStatus] = useState<'idle' | 'locating' | 'ready' | 'denied' | 'unavailable'>('idle');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -76,6 +78,28 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
     } else {
       setGeoStatus('unavailable');
     }
+  }, []);
+
+  const clearSOSHold = () => {
+    if (sosHoldTimer.current) {
+      clearTimeout(sosHoldTimer.current);
+      sosHoldTimer.current = null;
+    }
+    setIsHoldingSOS(false);
+  };
+
+  const startSOSHold = () => {
+    if (isTriggering || sosHoldTimer.current) return;
+    setIsHoldingSOS(true);
+    sosHoldTimer.current = setTimeout(() => {
+      sosHoldTimer.current = null;
+      setIsHoldingSOS(false);
+      void handleSOSTrigger();
+    }, 3000);
+  };
+
+  useEffect(() => () => {
+    if (sosHoldTimer.current) clearTimeout(sosHoldTimer.current);
   }, []);
 
   const handleSOSTrigger = async () => {
@@ -174,9 +198,22 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
               {/* Core SOS Button */}
               <button
                 type="button"
-                onClick={handleSOSTrigger}
+                onPointerDown={startSOSHold}
+                onPointerUp={clearSOSHold}
+                onPointerLeave={clearSOSHold}
+                onPointerCancel={clearSOSHold}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    startSOSHold();
+                  }
+                }}
+                onKeyUp={clearSOSHold}
+                onBlur={clearSOSHold}
+                onContextMenu={(event) => event.preventDefault()}
                 disabled={isTriggering}
-                className="w-24 h-24 rounded-full bg-gradient-to-tr from-[#c41c2a] via-[#E52E3D] to-[#ff4d5c] shadow-xl shadow-[#E52E3D]/50 flex flex-col items-center justify-center text-white cursor-pointer active:scale-95 transition-transform animate-pulse-glow disabled:opacity-80"
+                aria-label="Hold for 3 seconds to activate SOS"
+                className="w-24 h-24 rounded-full bg-gradient-to-tr from-[#c41c2a] via-[#E52E3D] to-[#ff4d5c] shadow-xl shadow-[#E52E3D]/50 flex flex-col items-center justify-center text-white cursor-pointer active:scale-95 transition-transform animate-pulse-glow disabled:opacity-80 touch-none select-none"
               >
                 {isTriggering ? (
                   <Loader2 className="w-7 h-7 animate-spin" />
@@ -184,7 +221,7 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
                   <>
                     <Bell className="w-7 h-7 drop-shadow-md stroke-[2.5]" />
                     <span className="text-base font-black tracking-wider drop-shadow-md mt-0.5">
-                      SOS
+                      {isHoldingSOS ? 'HOLD…' : 'SOS'}
                     </span>
                   </>
                 )}
@@ -193,7 +230,7 @@ export function HomeScreen({ onNavigate, onTriggerSOS }: HomeScreenProps) {
           </div>
         </div>
         <p className="text-xs font-semibold text-slate-500 mt-3 tracking-wide">
-          Press in case of emergency
+          {isHoldingSOS ? 'Keep holding… 3 seconds' : 'Hold for 3 seconds to activate SOS'}
         </p>
       </div>
 
