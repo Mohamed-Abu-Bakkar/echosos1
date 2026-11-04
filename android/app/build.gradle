@@ -1,8 +1,28 @@
+// Optional release signing configuration is read from the user's home directory.
+// Do not commit passwords or signing keys to this repository.
+def signingProperties = new Properties()
+def defaultSigningPropertiesFile = new File(System.getProperty("user.home"), ".config/echosos/keystore.properties")
+def signingPropertiesFile = new File(System.getenv("ECHOSOS_KEY_PROPERTIES") ?: defaultSigningPropertiesFile.absolutePath)
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.withInputStream { stream -> signingProperties.load(stream) }
+}
+
 apply plugin: 'com.android.application'
 
 android {
     namespace = "com.echosos.app"
     compileSdk = rootProject.ext.compileSdkVersion
+    signingConfigs {
+        release {
+            if (signingPropertiesFile.exists()) {
+                storeFile file(signingProperties.getProperty("storeFile"))
+                storePassword signingProperties.getProperty("storePassword")
+                keyAlias signingProperties.getProperty("keyAlias")
+                keyPassword signingProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId "com.echosos.app"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -19,6 +39,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            if (signingPropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
