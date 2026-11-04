@@ -9,7 +9,7 @@ import authConfig from "./auth.config";
 import authSchema from "./betterAuth/schema";
 
 export const authComponent = createClient<DataModel, typeof authSchema>(
-  components.betterAuth,
+  (components as any).betterAuth,
   {
     local: {
       schema: authSchema,
