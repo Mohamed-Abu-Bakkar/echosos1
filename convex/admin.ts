@@ -106,3 +106,40 @@ export const listAlertHistory = query({
       .take(limit);
   },
 });
+
+export const listEmergencyContacts = query({
+  args: { limit: v.optional(v.number()) },
+  returns: v.array(v.object({
+    id: v.id("emergency_contacts"),
+    userId: v.id("users"),
+    userName: v.string(),
+    userPhone: v.string(),
+    name: v.string(),
+    phone: v.string(),
+    relationship: v.string(),
+    isPrimary: v.boolean(),
+    initials: v.string(),
+    photoUrl: v.optional(v.string()),
+  })),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 50), 100));
+    const contacts = await ctx.db.query("emergency_contacts").order("desc").take(limit);
+    const rows = await Promise.all(contacts.map(async (contact) => {
+      const owner = await ctx.db.get(contact.user_id);
+      return {
+        id: contact._id,
+        userId: contact.user_id,
+        userName: owner?.name ?? "Unknown user",
+        userPhone: owner?.phone ?? "",
+        name: contact.name,
+        phone: contact.phone,
+        relationship: contact.relationship,
+        isPrimary: contact.is_primary,
+        initials: contact.initials,
+        ...(contact.photo_url ? { photoUrl: contact.photo_url } : {}),
+      };
+    }));
+    return rows;
+  },
+});
