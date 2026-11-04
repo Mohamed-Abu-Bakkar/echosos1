@@ -147,7 +147,7 @@ only when all of these conditions hold:
 
 - `ECHOSOS_DEMO_OTP_ENABLED=true`
 - `ECHOSOS_ENV=development`
-- `NODE_ENV` is not `production`
+- `SITE_URL` exactly matches the allowlisted development Convex site URL
 
 All other configurations reject the fixed code. The demo sender does not send
 SMS, return the code to the client, or write it to logs. This is a local/demo
