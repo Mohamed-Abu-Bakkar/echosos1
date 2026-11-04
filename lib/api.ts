@@ -144,6 +144,10 @@ export async function register(
 
 export function logout(): void {
   clearSession();
+  // Stop native monitoring only when the authenticated session is explicitly ended.
+  void import('@/lib/background-monitor')
+    .then(({ stopBackgroundMonitoring }) => stopBackgroundMonitoring())
+    .catch((error) => console.error('Could not stop EchoSOS monitoring on logout:', error));
 }
 
 // ---------- alerts ----------

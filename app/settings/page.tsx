@@ -33,6 +33,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/auth-context';
 import * as api from '@/lib/api';
+import {
+  DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS,
+  getBackgroundNotificationOptions,
+  updateBackgroundNotificationOptions,
+  type BackgroundNotificationOptions,
+} from '@/lib/background-monitor';
 
 interface SettingsScreenProps {
   onNavigate?: (screen: string) => void;
@@ -48,6 +54,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
   }, [loading, user, router]);
 
   const [darkMode, setDarkMode] = useState(false);
+  const [backgroundOptions, setBackgroundOptions] = useState<BackgroundNotificationOptions>(DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [showAccountDialog, setShowAccountDialog] = useState(false);
@@ -56,6 +63,20 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
   const [profilePassword, setProfilePassword] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    getBackgroundNotificationOptions().then(setBackgroundOptions).catch(() => {});
+  }, []);
+
+  const handleBackgroundOptionChange = async (key: keyof BackgroundNotificationOptions, checked: boolean) => {
+    const next = { ...backgroundOptions, [key]: checked };
+    setBackgroundOptions(next);
+    try {
+      await updateBackgroundNotificationOptions({ [key]: checked });
+    } catch (err) {
+      console.error('Failed to update background notification details:', err);
+    }
+  };
 
   useEffect(() => {
     api
@@ -243,6 +264,39 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
         ))}
+
+        <section className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-white p-2 text-emerald-700 shadow-xs">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-[#0F172A]">Background Protection</h4>
+              <p className="text-[11px] text-slate-500 font-medium">Monitoring starts after login and stays active when the app is in the background.</p>
+            </div>
+          </div>
+          <p className="text-[11px] leading-relaxed text-slate-600">
+            Choose which diagnostic details appear in the ongoing Android notification. These switches do not pause or stop monitoring.
+          </p>
+          {([
+            { key: 'showBluetoothStatus', title: 'Bluetooth status', description: 'Show Bluetooth and scanner state' },
+            { key: 'showBeaconStatus', title: 'Beacon status', description: 'Show the latest beacon mode and ID' },
+            { key: 'showLastDetection', title: 'Last detection time', description: 'Show when a beacon was last detected' },
+            { key: 'showLastSosEvent', title: 'Last SOS event', description: 'Show the latest SOS reporting state' },
+          ] as const).map((item) => (
+            <div key={item.key} className="flex items-center justify-between gap-3 border-t border-emerald-100 pt-3">
+              <div>
+                <h5 className="text-xs font-semibold text-slate-800">{item.title}</h5>
+                <p className="text-[11px] text-slate-500">{item.description}</p>
+              </div>
+              <Switch
+                checked={backgroundOptions[item.key]}
+                onCheckedChange={(checked) => handleBackgroundOptionChange(item.key, checked)}
+              />
+            </div>
+          ))}
+          <p className="text-[10px] text-slate-500">The persistent foreground-service notification itself cannot be disabled while monitoring is running.</p>
+        </section>
 
         <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100 flex items-center justify-between">
           <div className="flex items-center space-x-3">
