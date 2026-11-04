@@ -66,3 +66,16 @@ Never put BETTER_AUTH_SECRET in a NEXT_PUBLIC_ variable or client bundle.
 - Do not mark Stage 1 complete until sign-up, sign-in, sign-out, app restart/session restoration, cross-account access denial and account migration tests pass.
 - Existing accounts need a deliberate migration/reset strategy; do not silently create duplicate accounts based on phone number.
 - No BLE, incident-routing, SMS or push implementation belongs in Stage 1.
+
+## Authentication decision gate — phone and password
+
+The current EchoSOS UI identifies accounts by phone number and password. Do not switch this to email/password or silently manufacture an email address for each account.
+
+Better Auth's Phone Number plugin is the relevant supported path: it provides phone-number authentication and documents phone-number + password sign-in when the user has a credential account record. Its OTP verification flow requires an application-provided `sendOTP` SMS implementation. The Username plugin is not a drop-in replacement because its sign-up flow still requires an email address.
+
+Before enabling the new sign-in flow, resolve both migration requirements:
+
+1. **Existing passwords:** the current EchoSOS implementation stores a custom SHA-256 digest using a hardcoded fallback secret. This is not a safe credential format to carry forward as-is. Choose a controlled one-time migration that verifies the legacy credential and rehashes it into Better Auth's credential format, or require a password reset. Never copy the legacy digest into Better Auth as though it were a compatible password hash.
+2. **Phone verification:** decide whether existing phone numbers are trusted as already verified or must be verified through OTP. If OTP is required, select and configure the SMS provider before enabling the phone verification flow. Do not mark existing numbers verified without an explicit policy.
+
+Until these decisions and a tested migration path exist, keep this PR in draft and do not remove the existing auth path or deploy the new auth flow. This is a release blocker, not a reason to invent an email identity or bypass verification.
