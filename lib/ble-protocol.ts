@@ -19,9 +19,9 @@
  *   [9]     battery   uint8  0-100 (optional; 0xFF = unknown)
  *
  * Advertised local name remains a human-readable hint only:
- *   EchoSOS-r-<8 hex beaconId>
- *   EchoSOS-e-<8 hex beaconId>   (while SOS event active)
- *   EchoSOS-c-<8 hex beaconId>   (while cancelling / cancelled)
+ *   EchoSOS-r-<12 hex beaconId>
+ *   EchoSOS-e-<12 hex beaconId>   (while SOS event active)
+ *   EchoSOS-c-<12 hex beaconId>   (while cancelling / cancelled)
  */
 
 export const BEACON_MODE = {
