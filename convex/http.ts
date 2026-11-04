@@ -1,8 +1,15 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
+import { authComponent, createAuth } from "./auth";
 
 const http = httpRouter();
+
+authComponent.registerRoutesLazy(http, createAuth, {
+  basePath: "/api/auth",
+  cors: true,
+  trustedOrigins: [process.env.SITE_URL!],
+});
 
 /**
  * ESP32 → backend telemetry ingest.
