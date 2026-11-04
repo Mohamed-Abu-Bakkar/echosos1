@@ -127,20 +127,19 @@ export class CapacitorBLEScanner {
       const adv = resolveAdvertisement(advertisedName, manufacturerData);
       const hasEchoSOSName = advertisedName.toLowerCase().startsWith('echosos-');
 
-      // Display matching names even when the advertisement payload is not
-      // parseable yet. Never trigger SOS/cancel actions without a valid payload.
-      if (!adv && !hasEchoSOSName) return;
-
+      // Publish all named BLE scan results to the UI. The Beacon screen
+      // applies the EchoSOS name filter. Protocol validation below still
+      // gates all SOS/cancel behavior.
       const displayName = adv
         ? buildBeaconLocalName(adv.mode, adv.beaconId)
         : advertisedName;
       const mac = result.device?.deviceId || result.deviceId || '';
-      if (mac) {
+      if (mac && displayName) {
         bleEventBus.emit({
           name: displayName,
           mac,
           signal: typeof result.rssi === 'number' ? `${result.rssi} dBm` : 'N/A',
-          available: true,
+          available: Boolean(adv),
           rawName: displayName,
         });
       }
