@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { EchoLogo } from '@/components/ui/echo-logo';
 import * as api from '@/lib/api';
+import { bleCapacitorScanner } from '@/lib/ble-capacitor-scanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -33,10 +34,8 @@ export function DiagnosticsScreen() {
     setIsTesting(true);
 
     try {
-      const { BackgroundBLEScanner } = await import('@/lib/ble-background-scanner');
-      const scanner = new BackgroundBLEScanner();
-      await scanner.requestPermissions();
-      const available = await scanner.isAvailable();
+      await bleCapacitorScanner.requestPermissions();
+      const available = await bleCapacitorScanner.isAvailable();
       setResults((prev) =>
         prev.map((r) =>
           r.name === 'BLE Scanner'
