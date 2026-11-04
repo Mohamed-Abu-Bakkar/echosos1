@@ -88,3 +88,17 @@ Until these decisions and a tested migration path exist, keep this PR in draft a
 - Authentication phone verification and password recovery require a server-reachable SMS delivery/verification provider. Keep this provider behind a server-side adapter and do not hardcode provider credentials.
 - Until a provider is configured, phone OTP/password recovery must remain unavailable rather than silently weakening account recovery. The user-facing recovery screen should clearly explain the temporary limitation.
 - Emergency-contact SMS is a separate Android capability: it needs runtime permission, explicit user-facing disclosure, device/SIM availability, and delivery/failure handling. It must not be treated as guaranteed delivery or as a substitute for backend authentication.
+
+## Demo-only fixed OTP
+
+For demonstrations only, the project may use a single fixed OTP (default demo value: `123456`) without an SMS provider. This is a usability stub, not phone ownership verification.
+
+Implementation/release constraints:
+
+- Gate the fixed OTP behind an explicit server-side demo environment setting (for example `ECHOSOS_DEMO_OTP_ENABLED=true`); default to disabled.
+- The OTP value must be server-side configuration, never a `NEXT_PUBLIC_*` variable and never exposed in a production build.
+- Refuse to start or verify this mode in production. Do not silently fall back to the demo code if SMS delivery fails.
+- Keep the fixed OTP out of production logs and user-facing production UI.
+- Display a clear “Demo OTP” notice only while demo mode is enabled.
+- Add tests proving the fixed OTP works only in demo mode and is rejected when demo mode is disabled or the deployment is production.
+- Do not treat demo OTP verification as proof of phone ownership or allow it to authorize production account recovery.
