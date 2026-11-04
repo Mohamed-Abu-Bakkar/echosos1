@@ -22,7 +22,8 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
       enabled: true,
       requireEmailVerification: false,
     },
-    plugins: [convex({ authConfig })],  });
+    plugins: [convex({ authConfig })],
+  });
 
 export const getAuthUser = async (ctx: GenericCtx<DataModel>) =>
   authComponent.getAuthUser(ctx);
