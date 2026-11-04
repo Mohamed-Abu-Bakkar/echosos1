@@ -1,27 +1,14 @@
 /**
- * EchoSOS BLE protocol
+ * EchoSOS BLE protocol matching the current ESP32 firmware.
  *
- * Advertisement (manufacturer data) and GATT Event State share one compact
- * binary layout so identity/mode/event are not trusted from the local name
- * alone (names can be truncated and are not authentication).
+ * Advertised local name carries the complete mode and 48-bit MAC-derived ID:
+ *   EchoSOS-r-<12 hex chars>  registration
+ *   EchoSOS-e-<12 hex chars>  emergency
+ *   EchoSOS-c-<12 hex chars>  cancellation
  *
- * Manufacturer data layout (after company ID 0xE505):
- *   [0]     mode      uint8  'r' | 'e' | 'c'
- *   [1..6]  beaconId  uint48 big-endian
- *   [7..10] eventId   uint32 big-endian (0 = no active event)
- * Legacy 9-byte advertisements with uint32 beacon IDs remain readable.
- *
- * GATT Event State characteristic payload (read / notify / write):
- *   [0]     mode      uint8  'r' | 'e' | 'c'
- *   [1..6]  beaconId  uint48 big-endian
- *   [7..10] eventId   uint32 big-endian (0 = no active event)
- *   [11]    battery   uint8  0-100 (0xFF = unknown)
- * Legacy 10-byte states with uint32 beacon IDs remain readable.
- *
- * Advertised local name remains a human-readable hint only:
- *   EchoSOS-r-<12 hex beaconId>
- *   EchoSOS-e-<12 hex beaconId>   (while SOS event active)
- *   EchoSOS-c-<12 hex beaconId>   (while cancelling / cancelled)
+ * The current firmware does not send manufacturer data. Its GATT status
+ * characteristic is READ-only UTF-8 text (IDLE, REGISTRATION, SOS:<eventId>,
+ * or CANCEL:<eventId>), not a binary event-state payload.
  */
 
 export const BEACON_MODE = {
