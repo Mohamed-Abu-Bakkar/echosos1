@@ -17,6 +17,7 @@ export class CapacitorBLEScanner {
   private scanning = false;
   private alertCallback?: AlertCallback;
   private lastEmergencyKey?: string;
+  private lastCancelKey?: string;
   private scanInterval: ReturnType<typeof setInterval> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private handlingEmergency = false;
@@ -147,6 +148,7 @@ export class CapacitorBLEScanner {
 
       this.alertCallback?.({ mode: adv.mode, beaconId: adv.beaconId, eventId: adv.eventId });
       if (adv.mode === 'e') {
+        this.lastCancelKey = undefined;
         const eventKey = adv.eventId ? adv.beaconId + ':' + adv.eventId : adv.beaconId + ':emergency';
         if (this.lastEmergencyKey !== eventKey && !this.handlingEmergency) {
           this.lastEmergencyKey = eventKey;
@@ -229,6 +231,8 @@ export class CapacitorBLEScanner {
   }
 
   private async handleCancel(adv: any): Promise<void> {
+    const cancelKey = adv.beaconId.toLowerCase();
+    if (this.lastCancelKey === cancelKey) return;
     try {
       const session = getSession();
       if (!session) return;
@@ -243,7 +247,9 @@ export class CapacitorBLEScanner {
         activeBeaconId &&
         String(activeBeaconId).toLowerCase() === adv.beaconId.toLowerCase()
       ) {
-        // Never cancel silently: the app shell asks the user to confirm first.
+        // Ask once per cancellation advertisement episode, even if the beacon
+        // repeats its BLE packet many times while the user decides.
+        this.lastCancelKey = cancelKey;
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('echosos:cancel-requested', {
             detail: { beaconId: adv.beaconId, eventId: active.alertState.event_id },
