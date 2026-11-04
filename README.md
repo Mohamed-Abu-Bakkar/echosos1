@@ -76,3 +76,53 @@ Registers users, logs in, pairs a beacon, runs contacts CRUD, triggers/cancels a
 npm run build        # static export in out/ + relative asset path patch
 npx cap sync android # copies out/ into android/app/src/main/assets/public
 ```
+
+
+## Android build and device scripts (Ubuntu)
+
+The interactive Android helper remembers the selected ADB device and non-secret signing configuration in the git-ignored `.echosos-android.env` file at the repository root. Keystore passwords are stored outside the repository in `~/.config/echosos/keystore.properties` with restrictive permissions.
+
+### Requirements
+
+- JDK 17 or newer
+- Node.js and pnpm (recommended; npm is also supported)
+- Android SDK with Platform Tools (`adb`) and the Android SDK platform/build tools for this project's compile SDK
+- USB debugging enabled on the Android phone
+
+### Interactive menu
+
+Run:
+
+```bash
+chmod +x scripts/*.sh
+./scripts/android.sh
+```
+
+The menu supports signing-key creation, phone setup, debug/release builds, install, and build-and-install workflows. It remembers the selected phone across runs. The memory file stores no passwords.
+
+### Direct commands
+
+```bash
+# Create a new release keystore and configure local Gradle signing
+./scripts/create-keys.sh
+
+# Connect and remember an authorized Android phone
+./scripts/setup-phone.sh
+
+# Build a debug APK and install it on the remembered/selected phone
+./scripts/build-install.sh debug
+
+# Build a release APK and install it (requires the signing key above)
+./scripts/build-install.sh release
+
+# Build only, without installing
+./scripts/build-install.sh debug build-only
+./scripts/build-install.sh release build-only
+
+# Install an already-built release APK
+./scripts/install-release.sh
+```
+
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`; the signed release APK is written to `android/app/build/outputs/apk/release/app-release.apk`.
+
+**Signing-key backup:** Keep secure offline backups of the `.jks` file and `~/.config/echosos/keystore.properties`. Losing the release signing key prevents installing updates over apps signed with that key. Never commit either file.
