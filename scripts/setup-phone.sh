@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname -- "$0")/android-common.sh"
 load_android_config
 
-need_command adb
+ensure_adb
 adb start-server >/dev/null
 
 echo "Connected Android devices:"

@@ -37,7 +37,7 @@ while true; do
     "Quit"; do
     case "$REPLY" in
       1) "$SCRIPT_DIR/create-keys.sh" ;;
-      2) "$SCRIPT_DIR/setup-phone.sh"; load_android_config ;;
+      2) "$SCRIPT_DIR/setup-phone.sh" ;;
       3) "$SCRIPT_DIR/build-install.sh" debug build-only ;;
       4) "$SCRIPT_DIR/build-install.sh" debug install ;;
       5) "$SCRIPT_DIR/build-install.sh" release build-only ;;
@@ -52,6 +52,7 @@ while true; do
       10) exit 0 ;;
       *) echo "Select a valid menu number." >&2; continue ;;
     esac
+    load_android_config
     break
   done
 done
