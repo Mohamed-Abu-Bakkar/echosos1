@@ -67,6 +67,12 @@ export default defineSchema({
     language: v.string(),
     notifications_enabled: v.boolean(),
     sos_sensitivity: v.union(v.literal("HIGH"), v.literal("MEDIUM"), v.literal("LOW")),
+    // Android foreground-service notification detail preferences.
+    // Optional keeps existing preference documents valid; consumers default these to true.
+    background_notification_show_bluetooth_status: v.optional(v.boolean()),
+    background_notification_show_beacon_status: v.optional(v.boolean()),
+    background_notification_show_last_detection: v.optional(v.boolean()),
+    background_notification_show_last_sos_event: v.optional(v.boolean()),
   }).index("user_id", ["user_id"]),
 
   active_alert: defineTable({

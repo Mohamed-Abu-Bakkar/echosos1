@@ -43,11 +43,11 @@ export const DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS: BackgroundNotificationOpti
 const NativeMonitor = registerPlugin<EchoSOSMonitorPlugin>('EchoSOSMonitor');
 
 export function isNativeBackgroundMonitorAvailable(): boolean {
-  return Capacitor.isNativePlatform();
+  return Capacitor.getPlatform() === 'android';
 }
 
 export async function startBackgroundMonitoring(): Promise<void> {
-  if (!Capacitor.isNativePlatform()) return;
+  if (Capacitor.getPlatform() !== 'android') return;
 
   const permissions = await NativeMonitor.requestMonitorPermissions();
   if (!permissions.bluetoothGranted) {
@@ -66,7 +66,7 @@ export async function startBackgroundMonitoring(): Promise<void> {
 }
 
 export async function getBackgroundNotificationOptions(): Promise<BackgroundNotificationOptions> {
-  if (!Capacitor.isNativePlatform()) return DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS;
+  if (Capacitor.getPlatform() !== 'android') return DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS;
   try {
     return { ...DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS, ...(await NativeMonitor.getNotificationOptions()) };
   } catch {
@@ -77,19 +77,19 @@ export async function getBackgroundNotificationOptions(): Promise<BackgroundNoti
 export async function updateBackgroundNotificationOptions(
   options: Partial<BackgroundNotificationOptions>,
 ): Promise<void> {
-  if (!Capacitor.isNativePlatform()) return;
+  if (Capacitor.getPlatform() !== 'android') return;
   await NativeMonitor.updateNotificationOptions(options);
 }
 
 export async function stopBackgroundMonitoring(): Promise<void> {
-  if (!Capacitor.isNativePlatform()) return;
+  if (Capacitor.getPlatform() !== 'android') return;
   await NativeMonitor.stopMonitoring();
 }
 
 export async function addBackgroundBeaconListener(
   listener: (event: NativeBeaconEvent) => void,
 ): Promise<PluginListenerHandle | null> {
-  if (!Capacitor.isNativePlatform()) return null;
+  if (Capacitor.getPlatform() !== 'android') return null;
   return NativeMonitor.addListener('beaconDetected', listener);
 }
 

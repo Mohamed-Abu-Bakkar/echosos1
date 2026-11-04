@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -36,6 +36,7 @@ import * as api from '@/lib/api';
 import {
   DEFAULT_BACKGROUND_NOTIFICATION_OPTIONS,
   getBackgroundNotificationOptions,
+  isNativeBackgroundMonitorAvailable,
   updateBackgroundNotificationOptions,
   type BackgroundNotificationOptions,
 } from '@/lib/background-monitor';
@@ -64,30 +65,72 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
 
+  const changedBackgroundKeys = useRef(new Set<keyof BackgroundNotificationOptions>());
+
+  const backgroundPreferenceField = {
+    showBluetoothStatus: 'backgroundNotificationShowBluetoothStatus',
+    showBeaconStatus: 'backgroundNotificationShowBeaconStatus',
+    showLastDetection: 'backgroundNotificationShowLastDetection',
+    showLastSosEvent: 'backgroundNotificationShowLastSosEvent',
+  } as const;
+
   useEffect(() => {
-    getBackgroundNotificationOptions().then(setBackgroundOptions).catch(() => {});
+    api.getPreferences().then(async (data) => {
+      if (!data.success || !data.preferences) return;
+      const pref = data.preferences;
+      setDarkMode(Boolean(pref.dark_mode));
+
+      const fromCloud: BackgroundNotificationOptions = {
+        showBluetoothStatus: pref.background_notification_show_bluetooth_status ?? true,
+        showBeaconStatus: pref.background_notification_show_beacon_status ?? true,
+        showLastDetection: pref.background_notification_show_last_detection ?? true,
+        showLastSosEvent: pref.background_notification_show_last_sos_event ?? true,
+      };
+
+      if (!isNativeBackgroundMonitorAvailable()) return;
+      // Sync only keys the user has not changed while this request was in flight.
+      const untouchedOptions: Partial<BackgroundNotificationOptions> = {};
+      (Object.keys(fromCloud) as Array<keyof BackgroundNotificationOptions>).forEach((key) => {
+        if (!changedBackgroundKeys.current.has(key)) untouchedOptions[key] = fromCloud[key];
+      });
+      await updateBackgroundNotificationOptions(untouchedOptions);
+      setBackgroundOptions((current) => {
+        const merged = { ...fromCloud };
+        changedBackgroundKeys.current.forEach((key) => {
+          merged[key] = current[key];
+        });
+        return merged;
+      });
+    }).catch(async () => {
+      if (isNativeBackgroundMonitorAvailable()) {
+        const localOptions = await getBackgroundNotificationOptions();
+        setBackgroundOptions((current) => {
+          const merged = { ...localOptions };
+          changedBackgroundKeys.current.forEach((key) => {
+            merged[key] = current[key];
+          });
+          return merged;
+        });
+      }
+    });
   }, []);
 
   const handleBackgroundOptionChange = async (key: keyof BackgroundNotificationOptions, checked: boolean) => {
-    const next = { ...backgroundOptions, [key]: checked };
-    setBackgroundOptions(next);
+    changedBackgroundKeys.current.add(key);
+    setBackgroundOptions((current) => ({ ...current, [key]: checked }));
+    const preferenceField = backgroundPreferenceField[key];
     try {
-      await updateBackgroundNotificationOptions({ [key]: checked });
+      const [localResult, cloudResult] = await Promise.all([
+        updateBackgroundNotificationOptions({ [key]: checked }),
+        api.updatePreferences({ [preferenceField]: checked }),
+      ]);
+      if (!cloudResult.success) {
+        throw new Error(cloudResult.message || 'Could not save notification preference to Convex');
+      }
     } catch (err) {
-      console.error('Failed to update background notification details:', err);
+      console.error('Failed to persist background notification details:', err);
     }
   };
-
-  useEffect(() => {
-    api
-      .getPreferences()
-      .then((data) => {
-        if (data.success && data.preferences) {
-          setDarkMode(Boolean(data.preferences.dark_mode));
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   const handleDarkModeToggle = async (checked: boolean) => {
     setDarkMode(checked);
@@ -265,6 +308,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
           </div>
         ))}
 
+        {isNativeBackgroundMonitorAvailable() && (
         <section className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-3">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-white p-2 text-emerald-700 shadow-xs">
@@ -297,6 +341,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
           ))}
           <p className="text-[10px] text-slate-500">The persistent foreground-service notification itself cannot be disabled while monitoring is running.</p>
         </section>
+        )}
 
         <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100 flex items-center justify-between">
           <div className="flex items-center space-x-3">

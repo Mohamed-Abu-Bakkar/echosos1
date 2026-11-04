@@ -43,3 +43,79 @@ The existing telemetry HTTP route is also used by hardware telemetry. It should 
 7. Advertise an emergency-mode packet with a non-zero event ID; confirm the notification reports the backend response and Convex receives the telemetry.
 8. Turn Bluetooth off and on; confirm the notification reports the state. The service retries scanning periodically.
 9. Log out and confirm the foreground service is stopped.
+
+
+## Data model and runtime architecture
+
+Background-notification choices are stored on the existing `preferences` document for each user. No separate monitor-settings table is needed.
+
+| Convex field | Type | Default | Purpose |
+|---|---|---:|---|
+| `background_notification_show_bluetooth_status` | optional boolean | `true` | Show Bluetooth/scanner state |
+| `background_notification_show_beacon_status` | optional boolean | `true` | Show latest beacon state |
+| `background_notification_show_last_detection` | optional boolean | `true` | Show last advertisement timestamp |
+| `background_notification_show_last_sos_event` | optional boolean | `true` | Show latest SOS delivery state |
+
+The fields are optional in the schema so existing preference documents remain valid. The query and Settings UI interpret a missing field as `true`. Updating one option patches only that field. The Android native preferences mirror these values locally so notification updates do not depend on a live network connection.
+
+```mermaid
+erDiagram
+    users ||--o{ preferences : owns
+    users ||--o{ beacons : pairs
+    users ||--o{ emergency_contacts : configures
+    users ||--o{ active_alert : has
+    users ||--o{ alert_history : records
+    users ||--o{ notifications : receives
+
+    preferences {
+        id user_id
+        boolean dark_mode
+        string language
+        boolean notifications_enabled
+        string sos_sensitivity
+        boolean background_notification_show_bluetooth_status
+        boolean background_notification_show_beacon_status
+        boolean background_notification_show_last_detection
+        boolean background_notification_show_last_sos_event
+    }
+    beacons {
+        id user_id
+        string mac_address
+        string device_name
+        number signal_dbm
+        string status
+        number battery_percent
+    }
+    active_alert {
+        id user_id
+        string beacon_id
+        string event_id
+        boolean is_active
+        string detected_at
+        number latitude
+        number longitude
+    }
+```
+
+```mermaid
+flowchart TD
+    Login[User signs in] --> Provider[React BLE provider]
+    Provider --> Plugin[Capacitor Android plugin]
+    Plugin --> Service[Android foreground BLE service]
+    Service --> Scanner[Bluetooth LE scanner]
+    Scanner --> Parser[Parse EchoSOS manufacturer data]
+    Parser -->|Normal beacon| Status[Update ongoing notification]
+    Parser -->|SOS event| Telemetry[POST /telemetry]
+    Telemetry --> Ingest[Convex ingestHardwareTelemetry]
+    Ingest --> Records[active_alert + alert_history + notifications]
+
+    Settings[Android Settings] --> PrefMutation[Convex updatePreferences]
+    PrefMutation --> PrefDoc[(preferences)]
+    PrefDoc --> PrefQuery[Convex getPreferences]
+    PrefQuery --> NativePrefs[Android SharedPreferences]
+    NativePrefs --> Status
+    Toggles[Notification detail switches] --> NativePrefs
+    Service --> Status
+```
+
+The notification detail toggles affect only the notification text. They do not enable, pause, or stop the foreground service. The required ongoing service notification remains active while the monitor service is running.
