@@ -54,6 +54,12 @@ export class CapacitorBLEScanner {
     }
   }
 
+  /** Allow the same beacon to create a new incident after its prior SOS is cancelled. */
+  resetAlertDedupe(): void {
+    this.lastEmergencyKey = undefined;
+    this.lastCancelKey = undefined;
+  }
+
   async startScanning(): Promise<void> {
     if (this.scanning) return;
     
