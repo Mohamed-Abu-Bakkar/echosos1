@@ -188,6 +188,11 @@ export class CapacitorBLEScanner {
       if (!result.success) {
         this.lastEmergencyKey = undefined;
         console.error('SOS could not be recorded:', result.message);
+      } else if (typeof window !== 'undefined') {
+        // Notify the app shell only after the incident has been recorded.
+        window.dispatchEvent(new CustomEvent('echosos:sos-triggered', {
+          detail: { beaconId: adv.beaconId, eventId: result.alert?.eventId },
+        }));
       }
     } catch (err) {
       this.lastEmergencyKey = undefined;
