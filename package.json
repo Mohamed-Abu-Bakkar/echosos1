@@ -24,7 +24,9 @@
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "@convex-dev/better-auth": "^0.12.5",
+    "better-auth": "~1.6.30"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
