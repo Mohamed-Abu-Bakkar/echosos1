@@ -38,6 +38,8 @@ export function BLEProvider({ children }: { children: React.ReactNode }) {
           window.alert(result.message || "Could not cancel the SOS. The emergency remains active.");
           return;
         }
+        // The same beacon is now allowed to trigger a fresh SOS episode.
+        bleCapacitorScanner.resetAlertDedupe();
         window.alert(result.message || "SOS cancelled. Cancellation messages have been submitted.");
         router.push('/');
       } catch (error) {
