@@ -29,8 +29,5 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     plugins: [convex({ authConfig })],
   }) satisfies BetterAuthOptions;
 
-// Exposed for the Better Auth CLI's one-time administrator bootstrap.
-export const options = createAuthOptions({} as GenericCtx<DataModel>);
-
 export const createAuth = (ctx: GenericCtx<DataModel>) =>
   betterAuth(createAuthOptions(ctx));
