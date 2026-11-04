@@ -202,12 +202,23 @@ export class CapacitorBLEScanner {
       const session = getSession();
       if (!session) return;
 
-      await api.cancelAlert({
-        eventId: adv.eventId,
-        beaconId: adv.beaconId,
-        bleVerified: false
-      });
-      this.lastEmergencyKey = undefined;
+      // The current ESP32 advertises only its beacon ID in cancel mode.
+      // Match that ID against the active incident before cancelling it.
+      const active = await api.getAlert();
+      const activeBeaconId = active.alertState?.beacon_id;
+      if (
+        active.success &&
+        active.alertState?.is_active &&
+        activeBeaconId &&
+        String(activeBeaconId).toLowerCase() === adv.beaconId.toLowerCase()
+      ) {
+        await api.cancelAlert({
+          eventId: adv.eventId ?? undefined,
+          beaconId: adv.beaconId,
+          bleVerified: false
+        });
+        this.lastEmergencyKey = undefined;
+      }
     } catch (err) {
       console.error('Failed to cancel alert:', err);
     }
