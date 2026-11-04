@@ -243,12 +243,12 @@ export class CapacitorBLEScanner {
         activeBeaconId &&
         String(activeBeaconId).toLowerCase() === adv.beaconId.toLowerCase()
       ) {
-        await api.cancelAlert({
-          eventId: adv.eventId ?? undefined,
-          beaconId: adv.beaconId,
-          bleVerified: false
-        });
-        this.lastEmergencyKey = undefined;
+        // Never cancel silently: the app shell asks the user to confirm first.
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('echosos:cancel-requested', {
+            detail: { beaconId: adv.beaconId, eventId: active.alertState.event_id },
+          }));
+        }
       }
     } catch (err) {
       console.error('Failed to cancel alert:', err);
