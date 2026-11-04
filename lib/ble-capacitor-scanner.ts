@@ -170,13 +170,39 @@ export class CapacitorBLEScanner {
       let latitude: number | undefined;
       let longitude: number | undefined;
       if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000, enableHighAccuracy: true });
+        // BLE emergencies must allow enough time for a fresh GPS fix.
+        // First request high accuracy, then fall back to a recent/coarse fix.
+        const getPosition = (options: PositionOptions) =>
+          new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, options);
           });
+
+        try {
+          let pos: GeolocationPosition;
+          try {
+            pos = await getPosition({
+              enableHighAccuracy: true,
+              timeout: 15000,
+              maximumAge: 30000,
+            });
+          } catch (highAccuracyError) {
+            console.warn('High-accuracy GPS unavailable; trying fallback location:', highAccuracyError);
+            pos = await getPosition({
+              enableHighAccuracy: false,
+              timeout: 10000,
+              maximumAge: 5 * 60 * 1000,
+            });
+          }
           latitude = pos.coords.latitude;
           longitude = pos.coords.longitude;
-        } catch {}
+          console.info('BLE SOS location acquired:', {
+            latitude,
+            longitude,
+            accuracyMeters: pos.coords.accuracy,
+          });
+        } catch (locationError) {
+          console.warn('BLE SOS recorded without GPS coordinates:', locationError);
+        }
       }
 
       const result = await api.triggerAlert({
