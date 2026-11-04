@@ -1,4 +1,5 @@
-import { query, mutation, MutationCtx } from "./_generated/server";
+import { action, internalMutation, query, mutation, MutationCtx } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireUser } from "./lib/authz";
 import { Doc, Id } from "./_generated/dataModel";
@@ -131,7 +132,7 @@ export const triggerAlert = mutation({
       user_id: args.userId,
       type: "SOS",
       title: "Emergency Distress Broadcasted",
-      message: `SOS coordinates (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) transmitted to ${contactCount.length} emergency contacts and police dispatch. Event ${eventId}. Live tracking link: /track?id=${eventId}`,
+      message: `SOS incident recorded at (${latitude.toFixed(4)}, ${longitude.toFixed(4)}). ${contactCount.length} emergency contact(s) configured. SMS delivery is processed separately and is not confirmed yet. Event ${eventId}. Tracking: /track?id=${eventId}`,
       is_read: false,
       created_at: timestamp,
     });
@@ -187,7 +188,7 @@ export const cancelAlert = mutation({
       user_id: args.userId,
       type: "SYSTEM",
       title: "SOS Alert Cancelled by User",
-      message: `False alert notice dispatched to emergency contacts for event ${existing.event_id}. Emergency routing standby resumed. ${verifyNote}`,
+      message: `SOS event ${existing.event_id} was cancelled in EchoSOS. Contact cancellation messages are not sent by this app yet. ${verifyNote}`,
       is_read: false,
       created_at: new Date().toISOString(),
     });
@@ -225,5 +226,84 @@ export const getAlertHistory = query({
       return rows.filter((a) => a.event_type === "SYSTEM_UPDATE");
     }
     return rows;
+  },
+});
+
+/** Send one emergency SMS per saved contact through a server-side Twilio account. */
+export const sendEmergencySms = action({
+  args: {
+    userId: v.id("users"),
+    eventId: v.string(),
+    latitude: v.optional(v.float64()),
+    longitude: v.optional(v.float64()),
+  },
+  handler: async (ctx, args) => {
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const token = process.env.TWILIO_AUTH_TOKEN;
+    const from = process.env.TWILIO_FROM_NUMBER;
+    if (!sid || !token || !from) {
+      return { configured: false, queued: 0, failed: 0, message: "SOS saved. SMS provider is not configured, so no SMS was sent." };
+    }
+    const contacts = await ctx.runQuery(api.contacts.getContacts, { userId: args.userId });
+    const appUrl = process.env.ECHOSOS_APP_URL?.replace(/\\/$/, "");
+    const location = typeof args.latitude === "number" && typeof args.longitude === "number"
+      ? "https://maps.google.com/?q=" + args.latitude + "," + args.longitude
+      : "Location unavailable; please contact the user immediately.";
+    const tracking = appUrl ? appUrl + "/track?id=" + encodeURIComponent(args.eventId) : "Event ID: " + args.eventId;
+    const body = ["ECHOSOS EMERGENCY ALERT", "An SOS beacon has been activated. Please contact the user and arrange help.", "Location: " + location, "Incident: " + tracking].join("\\n");
+    let queued = 0;
+    let failed = 0;
+    for (const contact of contacts) {
+      let status = "SMS Failed";
+      let detail = "SMS request failed";
+      try {
+        const form = new URLSearchParams({ To: contact.phone, From: from, Body: body });
+        const response = await fetch("https://api.twilio.com/2010-04-01/Accounts/" + sid + "/Messages.json", {
+          method: "POST",
+          headers: { Authorization: "Basic " + btoa(sid + ":" + token), "Content-Type": "application/x-www-form-urlencoded" },
+          body: form.toString(),
+        });
+        const payload = await response.json() as { sid?: string; status?: string; message?: string };
+        if (response.ok && payload.sid) {
+          queued += 1;
+          status = "SMS Queued";
+          detail = "Twilio accepted the SMS (" + (payload.status || "queued") + "). Handset delivery is not yet confirmed.";
+        } else {
+          failed += 1;
+          detail = payload.message || ("Twilio returned HTTP " + response.status);
+        }
+      } catch (error) {
+        failed += 1;
+        detail = error instanceof Error ? error.message : "SMS request failed";
+      }
+      await ctx.runMutation(internal.alerts.recordSmsDelivery, {
+        userId: args.userId, eventId: args.eventId, contactName: contact.name,
+        contactPhone: contact.phone, status, detail,
+      });
+    }
+    return {
+      configured: true, queued, failed, total: contacts.length,
+      message: contacts.length === 0
+        ? "No emergency contacts are saved; no SMS was sent."
+        : queued + " SMS message(s) accepted by Twilio; " + failed + " failed. Delivery to handsets is not confirmed.",
+    };
+  },
+});
+
+export const recordSmsDelivery = internalMutation({
+  args: {
+    userId: v.id("users"), eventId: v.string(), contactName: v.string(),
+    contactPhone: v.string(), status: v.string(), detail: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("alert_history", {
+      user_id: args.userId, event_type: "CONTACT_DELIVERED",
+      status_badge: args.status, created_at: new Date().toISOString(),
+    });
+    await ctx.db.insert("notifications", {
+      user_id: args.userId, type: "SOS", title: args.status,
+      message: args.contactName + " (" + args.contactPhone + "): " + args.detail + " Incident " + args.eventId + ".",
+      is_read: false, created_at: new Date().toISOString(),
+    });
   },
 });
