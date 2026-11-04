@@ -15,8 +15,8 @@
  *   [0]     mode      uint8  'r' | 'e' | 'c'
  *   [1..6]  beaconId  uint48 big-endian
  *   [7..10] eventId   uint32 big-endian (0 = no active event)
- * Legacy 9-byte advertisements with uint32 beacon IDs remain readable.
- *   [9]     battery   uint8  0-100 (optional; 0xFF = unknown)
+ *   [11]    battery   uint8  0-100 (0xFF = unknown)
+ * Legacy 10-byte states with uint32 beacon IDs remain readable.
  *
  * Advertised local name remains a human-readable hint only:
  *   EchoSOS-r-<12 hex beaconId>
@@ -220,7 +220,7 @@ export function beaconIdFromName(name: string | null | undefined): string | null
     if (normalizedName.toLowerCase().startsWith(prefix.toLowerCase())) {
       const suffix = normalizedName.slice(prefix.length);
       return /^[0-9a-fA-F]{1,12}$/.test(suffix)
-        ? suffix.toLowerCase().padStart(8, '0')
+        ? suffix.toLowerCase().padStart(12, '0')
         : null;
     }
   }
