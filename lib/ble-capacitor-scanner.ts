@@ -117,7 +117,7 @@ export class CapacitorBLEScanner {
       if (!session) return;
 
       const advertisedName =
-        result.device?.name || result.localName || result.advertisement?.localName || '';
+        result.localName || result.device?.name || result.advertisement?.localName || '';
 
       const rawManufacturer = result.manufacturerData || result.advertisement?.manufacturerData || {};
       const manufacturerData = Object.entries(rawManufacturer).map(([vendorId, data]) => ({
@@ -125,7 +125,6 @@ export class CapacitorBLEScanner {
         data: data as DataView | ArrayBuffer | Uint8Array,
       })).filter((entry) => Number.isFinite(entry.vendorId));
       const adv = resolveAdvertisement(advertisedName, manufacturerData);
-      const hasEchoSOSName = advertisedName.toLowerCase().startsWith('echosos-');
 
       // Publish all named BLE scan results to the UI. The Beacon screen
       // applies the EchoSOS name filter. Protocol validation below still
