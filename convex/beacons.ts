@@ -204,7 +204,7 @@ export const ingestHardwareTelemetry = mutation({
           user_id: beacon.user_id,
           type: "SOS",
           title: "Emergency Distress Broadcasted",
-          message: `SOS coordinates (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) transmitted to ${contactCount.length} emergency contacts and police dispatch. Event ${eventId}. Live tracking link: /track?id=${eventId}`,
+          message: `SOS incident recorded at (${latitude.toFixed(4)}, ${longitude.toFixed(4)}). ${contactCount.length} emergency contact(s) configured. SMS delivery status is tracked separately; police dispatch is not integrated. Event ${eventId}.`,
           is_read: false,
           created_at: timestamp,
         });
