@@ -20,6 +20,17 @@
 7. Migrate every protected query/mutation used by the UI to derive the caller from ctx.auth.getUserIdentity(), never from a client-provided user ID.
 8. Remove the custom SHA-256 password scheme and hardcoded fallback session secret only after the new auth flow and account migration are verified.
 
+## Install and generate locally
+
+Run from the repository root before building or deploying this branch:
+
+```bash
+npm install convex@latest @convex-dev/better-auth better-auth@~1.6.15
+npx convex dev
+```
+
+The Convex CLI must regenerate `convex/_generated/api.*` so `components.betterAuth` is typed after the component is registered. Commit the resulting package-lock.json and generated files after verifying them locally. Do not hand-edit generated files.
+
 ## Deployment configuration
 
 Set these on the Convex deployment (never commit secrets):
