@@ -9,7 +9,7 @@ import type { DataModel } from "./_generated/dataModel";
  * Every query checks the signed-in Better Auth identity against ADMIN_EMAIL.
  */
 async function requireAdmin(ctx: GenericCtx<DataModel>) {
-  const user = await authComponent.getAuthUser(ctx);
+  const user: { email?: string } | null = await authComponent.getAuthUser(ctx);
   const configuredEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const signedInEmail =
     typeof user?.email === "string" ? user.email.trim().toLowerCase() : "";
