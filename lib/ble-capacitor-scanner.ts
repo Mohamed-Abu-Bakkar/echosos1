@@ -16,8 +16,10 @@ type AlertCallback = (event: {
 export class CapacitorBLEScanner {
   private scanning = false;
   private alertCallback?: AlertCallback;
-  private lastEmergencyEvent?: string;
-  private scanInterval: any = null;
+  private lastEmergencyKey?: string;
+  private scanInterval: ReturnType<typeof setInterval> | null = null;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private handlingEmergency = false;
 
   constructor(callback?: AlertCallback) {
     this.alertCallback = callback;
@@ -55,7 +57,8 @@ export class CapacitorBLEScanner {
     if (this.scanning) return;
     
     try {
-      await this.initialize();
+      const initialized = await this.initialize();
+      if (!initialized) return;
       const enabled = await this.isAvailable();
       if (!enabled) {
         try {
@@ -81,13 +84,13 @@ export class CapacitorBLEScanner {
           );
         } catch (err) {
           console.error('Scan error:', err);
-          setTimeout(startScan, 2000);
+          if (!this.retryTimer) this.retryTimer = setTimeout(() => { this.retryTimer = null; startScan(); }, 2000);
         }
       };
       
       startScan();
       // Restart scan every 10 seconds to keep it active
-      this.scanInterval = setInterval(startScan, 10000);
+      this.scanInterval = setInterval(startScan, 15000);
     } catch (err) {
       console.error('Start scan failed:', err);
       this.scanning = false;
@@ -97,10 +100,10 @@ export class CapacitorBLEScanner {
   async stopScanning(): Promise<void> {
     if (!this.scanning) return;
     try {
-      if (this.scanInterval) {
-        clearInterval(this.scanInterval);
-        this.scanInterval = null;
-      }
+      if (this.scanInterval) clearInterval(this.scanInterval);
+      if (this.retryTimer) clearTimeout(this.retryTimer);
+      this.scanInterval = null;
+      this.retryTimer = null;
       await BleClient.stopLEScan();
       this.scanning = false;
     } catch (err) {
@@ -127,30 +130,24 @@ export class CapacitorBLEScanner {
         });
       }
       
-      // Look for EchoSOS-e- pattern specifically
-      if (name.startsWith('EchoSOS-e-') || name.includes('EchoSOS-e')) {
-        const adv = resolveAdvertisement(name);
-        if (adv && adv.mode === 'e' && adv.eventId) {
-          if (this.lastEmergencyEvent !== adv.eventId) {
-            this.lastEmergencyEvent = adv.eventId;
-            this.handleEmergency(adv);
-          }
+      // ESP32 eventId is carried in manufacturer data, not just its local name.
+      const rawManufacturer = result.manufacturerData || result.advertisement?.manufacturerData || {};
+      const manufacturerData = Object.entries(rawManufacturer).map(([vendorId, data]) => ({
+        vendorId: Number(vendorId),
+        data: data as DataView | ArrayBuffer | Uint8Array,
+      })).filter((entry) => Number.isFinite(entry.vendorId));
+      const adv = resolveAdvertisement(name, manufacturerData);
+      if (!adv) return;
+
+      this.alertCallback?.({ mode: adv.mode, beaconId: adv.beaconId, eventId: adv.eventId });
+      if (adv.mode === 'e') {
+        const eventKey = adv.eventId ? adv.beaconId + ':' + adv.eventId : adv.beaconId + ':emergency';
+        if (this.lastEmergencyKey !== eventKey && !this.handlingEmergency) {
+          this.lastEmergencyKey = eventKey;
+          void this.handleEmergency(adv);
         }
-        this.alertCallback?.({ mode: 'e', beaconId: adv?.beaconId || name.split('-')[2] || '', eventId: adv?.eventId || null });
-        return;
-      }
-      
-      const adv = resolveAdvertisement(name);
-      if (adv) {
-        if (adv.mode === 'e' && adv.eventId) {
-          if (this.lastEmergencyEvent !== adv.eventId) {
-            this.lastEmergencyEvent = adv.eventId;
-            this.handleEmergency(adv);
-          }
-        } else if (adv.mode === 'c' && adv.eventId) {
-          this.handleCancel(adv);
-        }
-        this.alertCallback?.({ mode: adv.mode, beaconId: adv.beaconId, eventId: adv.eventId });
+      } else if (adv.mode === 'c') {
+        void this.handleCancel(adv);
       }
     } catch (err) {
       console.error('Handle scan result error:', err);
@@ -158,6 +155,8 @@ export class CapacitorBLEScanner {
   }
 
   private async handleEmergency(adv: any): Promise<void> {
+    if (this.handlingEmergency) return;
+    this.handlingEmergency = true;
     try {
       const session = getSession();
       if (!session) return;
@@ -173,13 +172,16 @@ export class CapacitorBLEScanner {
       }
 
       await api.triggerAlert({
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+        latitude: coords.latitude || undefined,
+        longitude: coords.longitude || undefined,
         beaconId: adv.beaconId,
         eventId: adv.eventId
       });
     } catch (err) {
+      this.lastEmergencyKey = undefined;
       console.error('Failed to trigger emergency alert:', err);
+    } finally {
+      this.handlingEmergency = false;
     }
   }
 
@@ -193,6 +195,7 @@ export class CapacitorBLEScanner {
         beaconId: adv.beaconId,
         bleVerified: false
       });
+      this.lastEmergencyKey = undefined;
     } catch (err) {
       console.error('Failed to cancel alert:', err);
     }
