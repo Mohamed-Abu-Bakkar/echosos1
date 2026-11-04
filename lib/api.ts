@@ -540,11 +540,9 @@ export async function scanBeacon(): Promise<{
             const name =
               result.device?.name ||
               result.localName ||
-              result.advertisement?.localName ||
               '';
             const rawManufacturer =
               result.manufacturerData ||
-              result.advertisement?.manufacturerData ||
               {};
             const manufacturerData = Object.entries(rawManufacturer)
               .map(([vendorId, data]) => ({
@@ -553,7 +551,7 @@ export async function scanBeacon(): Promise<{
               }))
               .filter((entry) => Number.isFinite(entry.vendorId));
             const advertisement = resolveAdvertisement(name, manufacturerData);
-            const deviceId = result.device?.deviceId || result.deviceId || '';
+            const deviceId = result.device.deviceId || '';
             if (!advertisement || !deviceId) return;
 
             devices.set(deviceId, {
