@@ -17,10 +17,15 @@ import authConfig from "./auth.config";
  * - Production must configure a real server-side SMS sender before enabling
  *   phone verification or password recovery.
  */
+// Hard allowlist this demo verifier to the confirmed development deployment.
+ // Production deployments cannot activate it by copying environment flags.
+const DEMO_OTP_ALLOWED_SITE_URL =
+  "https://perceptive-schnauzer-138.convex.site";
+
 const isDemoOtpEnabled =
   process.env.ECHOSOS_DEMO_OTP_ENABLED === "true" &&
   process.env.ECHOSOS_ENV === "development" &&
-  process.env.NODE_ENV !== "production";
+  process.env.SITE_URL === DEMO_OTP_ALLOWED_SITE_URL;
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
