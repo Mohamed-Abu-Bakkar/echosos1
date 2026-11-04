@@ -197,18 +197,20 @@ function isBeaconMode(value: number): boolean {
 
 export function modeFromName(name: string | null | undefined): BeaconMode | null {
   if (!name) return null;
-  if (name.startsWith(MODE_PREFIX.r)) return BEACON_MODE.registration;
-  if (name.startsWith(MODE_PREFIX.e)) return BEACON_MODE.emergency;
-  if (name.startsWith(MODE_PREFIX.c)) return BEACON_MODE.cancel;
+  const normalizedName = name.trim().toLowerCase();
+  if (normalizedName.startsWith(MODE_PREFIX.r.toLowerCase())) return BEACON_MODE.registration;
+  if (normalizedName.startsWith(MODE_PREFIX.e.toLowerCase())) return BEACON_MODE.emergency;
+  if (normalizedName.startsWith(MODE_PREFIX.c.toLowerCase())) return BEACON_MODE.cancel;
   return null;
 }
 
 export function beaconIdFromName(name: string | null | undefined): string | null {
   if (!name) return null;
+  const normalizedName = name.trim();
   for (const mode of ['r', 'e', 'c'] as const) {
     const prefix = MODE_PREFIX[mode];
-    if (name.startsWith(prefix)) {
-      const suffix = name.slice(prefix.length);
+    if (normalizedName.toLowerCase().startsWith(prefix.toLowerCase())) {
+      const suffix = normalizedName.slice(prefix.length);
       return /^[0-9a-fA-F]{1,8}$/.test(suffix)
         ? suffix.toLowerCase().padStart(8, '0')
         : null;
