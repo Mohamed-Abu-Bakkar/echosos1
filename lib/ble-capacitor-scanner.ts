@@ -119,17 +119,21 @@ export class CapacitorBLEScanner {
       const advertisedName =
         result.device?.name || result.localName || result.advertisement?.localName || '';
 
-      // Accept only valid EchoSOS advertisements. The displayed name is
-      // normalized to the documented EchoSOS-r/e/c-<8 hex ID> pattern.
       const rawManufacturer = result.manufacturerData || result.advertisement?.manufacturerData || {};
       const manufacturerData = Object.entries(rawManufacturer).map(([vendorId, data]) => ({
         vendorId: Number(vendorId),
         data: data as DataView | ArrayBuffer | Uint8Array,
       })).filter((entry) => Number.isFinite(entry.vendorId));
       const adv = resolveAdvertisement(advertisedName, manufacturerData);
-      if (!adv) return;
+      const hasEchoSOSName = advertisedName.toLowerCase().startsWith('echosos-');
 
-      const displayName = buildBeaconLocalName(adv.mode, adv.beaconId);
+      // Display matching names even when the advertisement payload is not
+      // parseable yet. Never trigger SOS/cancel actions without a valid payload.
+      if (!adv && !hasEchoSOSName) return;
+
+      const displayName = adv
+        ? buildBeaconLocalName(adv.mode, adv.beaconId)
+        : advertisedName;
       const mac = result.device?.deviceId || result.deviceId || '';
       if (mac) {
         bleEventBus.emit({
@@ -140,6 +144,8 @@ export class CapacitorBLEScanner {
           rawName: displayName,
         });
       }
+
+      if (!adv) return;
 
       this.alertCallback?.({ mode: adv.mode, beaconId: adv.beaconId, eventId: adv.eventId });
       if (adv.mode === 'e') {
