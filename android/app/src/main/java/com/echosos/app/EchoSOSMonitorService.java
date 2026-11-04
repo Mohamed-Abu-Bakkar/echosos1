@@ -19,7 +19,9 @@ import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.SparseArray;
 
 import androidx.core.app.NotificationCompat;
@@ -59,6 +61,10 @@ public class EchoSOSMonitorService extends Service {
     private long lastDispatchAttemptAt = 0L;
     private String dispatchingEventId = "";
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable scanRetry = () -> {
+        if (scanCallback == null) startBleScan();
+    };
 
     @Override
     public void onCreate() {
@@ -74,6 +80,8 @@ public class EchoSOSMonitorService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_UPDATE_NOTIFICATION.equals(intent.getAction())) {
+            startAsForegroundService();
+            startBleScan();
             updateNotification();
             return START_STICKY;
         }
@@ -181,11 +189,13 @@ public class EchoSOSMonitorService extends Service {
                 || ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 bluetoothStatus = "Bluetooth permission required";
                 updateNotification();
+                scheduleScanRetry();
                 return;
             }
         } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             bluetoothStatus = "Location permission required for BLE scan";
             updateNotification();
+            scheduleScanRetry();
             return;
         }
 
@@ -195,11 +205,13 @@ public class EchoSOSMonitorService extends Service {
             if (adapter == null) {
                 bluetoothStatus = "Bluetooth unavailable";
                 updateNotification();
+                scheduleScanRetry();
                 return;
             }
             if (!adapter.isEnabled()) {
                 bluetoothStatus = "Bluetooth is turned off";
                 updateNotification();
+                scheduleScanRetry();
                 return;
             }
 
@@ -207,6 +219,7 @@ public class EchoSOSMonitorService extends Service {
             if (scanner == null) {
                 bluetoothStatus = "BLE scanner unavailable";
                 updateNotification();
+                scheduleScanRetry();
                 return;
             }
 
@@ -226,20 +239,29 @@ public class EchoSOSMonitorService extends Service {
                     bluetoothStatus = "BLE scan failed (" + errorCode + ")";
                     scanCallback = null;
                     updateNotification();
+                    scheduleScanRetry();
                 }
             };
             scanner.startScan(scanCallback);
+            mainHandler.removeCallbacks(scanRetry);
             bluetoothStatus = "Scanning";
             updateNotification();
         } catch (SecurityException error) {
             bluetoothStatus = "Bluetooth permission required";
             scanCallback = null;
             updateNotification();
+            scheduleScanRetry();
         } catch (Exception error) {
             bluetoothStatus = "Scanner error: " + error.getClass().getSimpleName();
             scanCallback = null;
             updateNotification();
+            scheduleScanRetry();
         }
+    }
+
+    private void scheduleScanRetry() {
+        mainHandler.removeCallbacks(scanRetry);
+        mainHandler.postDelayed(scanRetry, 15000L);
     }
 
     private void handleScanResult(ScanResult result) {
@@ -383,6 +405,7 @@ public class EchoSOSMonitorService extends Service {
 
     @Override
     public void onDestroy() {
+        mainHandler.removeCallbacks(scanRetry);
         if (scanner != null && scanCallback != null) {
             try {
                 scanner.stopScan(scanCallback);
