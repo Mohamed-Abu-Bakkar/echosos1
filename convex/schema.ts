@@ -48,7 +48,9 @@ export default defineSchema({
     latitude: v.optional(v.float64()),
     longitude: v.optional(v.float64()),
     created_at: v.string(),
-  }).index("user_id", ["user_id"]),
+  })
+    .index("user_id", ["user_id"])
+    .index("by_created_at", ["created_at"]),
 
   notifications: defineTable({
     user_id: v.id("users"),
@@ -83,5 +85,6 @@ export default defineSchema({
     dispatch_url: v.string(),
   })
     .index("by_event_id", ["event_id"])
-    .index("by_user_and_active", ["user_id", "is_active"]),
+    .index("by_user_and_active", ["user_id", "is_active"])
+    .index("by_active", ["is_active"]),
 });
