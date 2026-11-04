@@ -245,6 +245,7 @@ export const sendEmergencySms = action({
       return { configured: false, queued: 0, failed: 0, message: "SOS saved. SMS provider is not configured, so no SMS was sent." };
     }
     const contacts = await ctx.runQuery(api.contacts.getContacts, { userId: args.userId });
+    const priorNotifications = await ctx.runQuery(api.notifications.getNotifications, { userId: args.userId, type: "SOS" });
     const appUrlValue = process.env.ECHOSOS_APP_URL;
     const appUrl = appUrlValue && appUrlValue.endsWith("/") ? appUrlValue.slice(0, -1) : appUrlValue;
     const location = typeof args.latitude === "number" && typeof args.longitude === "number"
@@ -254,7 +255,13 @@ export const sendEmergencySms = action({
     const body = ["ECHOSOS EMERGENCY ALERT", "An SOS beacon has been activated. Please contact the user and arrange help.", "Location: " + location, "Incident: " + tracking].join(String.fromCharCode(10));
     let queued = 0;
     let failed = 0;
-    for (const contact of contacts) {
+    for (const contact of contacts.slice(0, 5)) {
+      const alreadyQueued = priorNotifications.some((notification) =>
+        notification.title === "SMS Queued" &&
+        notification.message.includes(args.eventId) &&
+        notification.message.includes(contact.phone)
+      );
+      if (alreadyQueued) continue;
       let status = "SMS Failed";
       let detail = "SMS request failed";
       try {
