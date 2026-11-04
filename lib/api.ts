@@ -530,7 +530,6 @@ export async function scanBeacon(): Promise<{
       if (!enabled) {
         await BleClient.enable();
       }
-      await BleClient.requestLEScanPermissions();
       
       return new Promise((resolve) => {
         const devices = new Map<string, any>();
