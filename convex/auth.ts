@@ -1,13 +1,13 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
+import { admin } from "better-auth/plugins";
 import type { BetterAuthOptions } from "better-auth";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
 
-// Keep the component reference typed without hand-editing Convex-generated files.
-// The Convex CLI will regenerate the precise components type on the development deployment.
+// The CLI regenerates the precise component type after the first dev deployment sync.
 const betterAuthComponent = (
   components as unknown as {
     betterAuth: Parameters<typeof createClient<DataModel>>[0];
@@ -16,8 +16,8 @@ const betterAuthComponent = (
 
 export const authComponent = createClient<DataModel>(betterAuthComponent);
 
-export const createAuth = (ctx: GenericCtx<DataModel>) =>
-  betterAuth({
+export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
+  ({
     appName: "EchoSOS",
     baseURL: process.env.SITE_URL,
     secret: process.env.BETTER_AUTH_SECRET,
@@ -27,5 +27,11 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
       enabled: true,
       disableSignUp: true,
     },
-    plugins: [convex({ authConfig })],
-  } satisfies BetterAuthOptions);
+    plugins: [convex({ authConfig }), admin()],
+  }) satisfies BetterAuthOptions;
+
+// Exposed for the Better Auth CLI's one-time administrator bootstrap.
+export const options = createAuthOptions({} as GenericCtx<DataModel>);
+
+export const createAuth = (ctx: GenericCtx<DataModel>) =>
+  betterAuth(createAuthOptions(ctx));
