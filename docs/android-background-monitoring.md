@@ -60,7 +60,7 @@ The fields are optional in the schema so existing preference documents remain va
 
 ```mermaid
 erDiagram
-    users ||--o{ preferences : owns
+    users ||--o| preferences : owns
     users ||--o{ beacons : pairs
     users ||--o{ emergency_contacts : configures
     users ||--o{ active_alert : has

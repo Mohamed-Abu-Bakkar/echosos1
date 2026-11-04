@@ -120,7 +120,7 @@ export function SettingsScreen({ onNavigate, onLogout }: SettingsScreenProps) {
     setBackgroundOptions((current) => ({ ...current, [key]: checked }));
     const preferenceField = backgroundPreferenceField[key];
     try {
-      const [localResult, cloudResult] = await Promise.all([
+      const [, cloudResult] = await Promise.all([
         updateBackgroundNotificationOptions({ [key]: checked }),
         api.updatePreferences({ [preferenceField]: checked }),
       ]);
