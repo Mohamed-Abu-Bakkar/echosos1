@@ -11,36 +11,54 @@ Use only the dedicated development deployment while integrating:
 
 The existing `BETTER_AUTH_SECRET` is retained. Do not copy it into source control or the admin frontend environment.
 
-Production deployment `cheerful-whale-489` must remain untouched until development auth, queries, and the ESP32 telemetry route are verified.
+Production deployment `cheerful-whale-489` is not part of this development setup.
 
 ## Backend implementation
 
-The shared backend is owned by this repository. The admin UI repository must not create or deploy a second Convex backend.
+This repository owns the shared Convex backend. The admin UI repository must not create or deploy a second Convex backend.
 
-- Better Auth is registered as a Convex component.
+- Better Auth is installed as a local Convex component at `convex/betterAuth`.
+- The local component enables the Better Auth Admin plugin and its generated schema.
 - Better Auth HTTP routes are mounted at `/api/auth`.
 - The existing ESP32 `POST /telemetry` route remains registered.
-- Admin queries enforce an exact, normalized `ADMIN_EMAIL` allowlist on the server.
+- Admin data queries enforce the normalized `ADMIN_EMAIL` allowlist on the server.
 - Admin data access is read-only; it cannot cancel a beacon-originated SOS.
 - Admin queries cover overview, users, beacons, alert history, and emergency contacts.
+- Mobile app authentication in the existing `users` table remains separate from administrator authentication.
 
-## First administrator provisioning
+## Generate the local Better Auth schema
 
-Public email/password sign-up is disabled. Do not enable unrestricted registration or use Better Auth's Admin plugin with the hosted Convex component: the component's supported-plugin list does not include the Admin plugin, which requires schema changes.
+The checked-in `convex/betterAuth/schema.ts` is only a bootstrap placeholder. Generate the real plugin schema before running or deploying Convex:
 
-The first administrator must be provisioned through a reviewed, one-time server-side procedure compatible with the hosted component. Until that procedure is implemented and exercised on the development deployment, the dashboard must be treated as not yet ready for login.
+```bash
+cd convex/betterAuth
+npx auth generate
+cd ../..
+npx convex dev
+```
 
-## Required validation
+The generated schema must contain Better Auth core tables and Admin plugin fields. Do not hand-edit generated schema or generated Convex files.
 
-1. Run Convex code generation and deploy the backend changes to the development deployment only.
-2. Confirm the generated component types include `components.betterAuth`; do not hand-edit generated files.
-3. Run typecheck and lint for the mobile/backend repository.
-4. Confirm anonymous calls to every `admin.*` query fail.
-5. Confirm the allowlisted administrator can read overview, users, beacons, alert history, and emergency contacts.
-6. Confirm non-allowlisted authenticated identities are rejected.
-7. Confirm `POST /telemetry` still works with a test beacon payload.
-8. Only after all checks pass, connect the admin frontend to the development deployment.
+## First administrator
+
+Public email/password sign-up remains disabled. The intended first administrator is:
+
+- Email: `admin@echosos.com`
+- Role: `admin`
+
+The Better Auth Admin plugin is enabled in the backend and admin client. The first admin account still needs to be created against the running development deployment using a server-side Better Auth admin operation. Do not use the generic standalone `create-admin` CLI against this Convex adapter unless the adapter is explicitly configured to connect to the Convex deployment; the Convex adapter requires a Convex request context.
+
+## Required development validation
+
+1. Generate the local Better Auth schema as shown above.
+2. Run `npx convex dev` from the backend repository using the existing development deployment.
+3. Confirm Convex code generation completes and `components.betterAuth` exists in generated types.
+4. Run `npm run typecheck` and `npm run lint` in the admin repository.
+5. Confirm anonymous calls to every `admin.*` query fail.
+6. Confirm the allowlisted administrator can read overview, users, beacons, alert history, and emergency contacts.
+7. Confirm non-allowlisted authenticated identities are rejected.
+8. Confirm `POST /telemetry` still works with a test beacon payload.
 
 ## Data limitations
 
-The current active alert record contains its incident coordinates, not a continuous location track. The map must not imply live movement tracking until periodic phone GPS updates are persisted.
+The current active alert record contains its incident coordinates, not a continuous location track. The map is an incident-location map, not a live movement tracker.
