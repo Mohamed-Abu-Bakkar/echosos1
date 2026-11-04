@@ -102,3 +102,38 @@ Implementation/release constraints:
 - Display a clear “Demo OTP” notice only while demo mode is enabled.
 - Add tests proving the fixed OTP works only in demo mode and is rejected when demo mode is disabled or the deployment is production.
 - Do not treat demo OTP verification as proof of phone ownership or allow it to authorize production account recovery.
+
+## Local developer handoff
+
+Do this on the development machine after fetching the branch:
+
+```bash
+git fetch origin
+git switch feature/stage-1-better-auth
+npm install
+npm install convex@latest @convex-dev/better-auth better-auth@~1.6.15
+npx convex dev
+```
+
+The Convex command is expected to generate/update Convex component and API types. Review the generated diff and commit the lockfile and generated files; do not hand-edit generated files.
+
+Then validate:
+
+```bash
+npx tsc --noEmit
+npm run lint
+npm run build
+```
+
+Before any merge, verify all of the following on a real Convex development deployment:
+
+- Better Auth HTTP endpoints respond and the Convex JWT provider is accepted.
+- The React provider is mounted without breaking the Capacitor static export.
+- Phone sign-up/sign-in and password reset use the intended demo-only fixed OTP path.
+- The fixed OTP is rejected when demo mode is disabled and on production deployments.
+- Authenticated queries and mutations derive the profile from the verified identity; changing a client-supplied user ID cannot access another account.
+- Existing users' profile, contacts, beacons, alert history, notifications and preferences remain intact.
+- The ESP32 `/telemetry` HTTP endpoint still works.
+- Sign-out and app restart/session restoration work on Android.
+
+Do not merge until the generated files are committed, the checks pass, and the authorization/account-mapping work is complete. A successful static build alone does not validate Convex auth or Android runtime behavior.
